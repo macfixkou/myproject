@@ -1,0 +1,347 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// NextAuth.js用テーブル
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// 会社テーブル
+model Company {
+  id               String   @id @default(cuid())
+  name             String
+  timezone         String   @default("Asia/Tokyo")
+  payrollRounding  String   @default("ROUND") // ROUND, FLOOR, CEIL
+  breakPolicyJson  Json?    // 休憩時間ポリシー
+  standardWorkHours Int     @default(480) // 標準労働時間（分）
+  overtimeSettings Json?    // 残業設定
+  gpsRequired      Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  users          User[]
+  sites          Site[]
+  breakPolicies  BreakPolicy[]
+  payItems       PayItem[]
+  payRules       PayRule[]
+  payrolls       Payroll[]
+  alerts         Alert[]
+  auditLogs      AuditLog[]
+}
+
+// ユーザー（従業員・管理者）テーブル
+model User {
+  id             String    @id @default(cuid())
+  companyId      String
+  role           UserRole  @default(EMPLOYEE)
+  name           String
+  email          String    @unique
+  emailVerified  DateTime?
+  password       String?
+  phone          String?
+  hourlyWage     Decimal?  @db.Decimal(10, 2)
+  employmentType String?   // 雇用形態
+  active         Boolean   @default(true)
+  lastLoginAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  company    Company @relation(fields: [companyId], references: [id])
+  accounts   Account[]
+  sessions   Session[]
+  shifts     Shift[]
+  attendances Attendance[]
+  reports    Report[]
+  leaves     Leave[]
+  payrolls   Payroll[]
+  auditLogs  AuditLog[]
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
+// 現場テーブル
+model Site {
+  id             String    @id @default(cuid())
+  companyId      String
+  name           String
+  address        String?
+  latitude       Decimal?  @db.Decimal(11, 8)
+  longitude      Decimal?  @db.Decimal(11, 8)
+  geofenceRadius Int?      // メートル単位
+  client         String?   // 発注者
+  startDate      DateTime?
+  endDate        DateTime?
+  active         Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  company     Company @relation(fields: [companyId], references: [id])
+  shifts      Shift[]
+  attendances Attendance[]
+  reports     Report[]
+}
+
+// シフト（予定）テーブル
+model Shift {
+  id           String    @id @default(cuid())
+  userId       String
+  siteId       String?
+  plannedStart DateTime
+  plannedEnd   DateTime
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+  site Site? @relation(fields: [siteId], references: [id])
+}
+
+// 出勤記録テーブル
+model Attendance {
+  id                String            @id @default(cuid())
+  userId            String
+  siteId            String?
+  clockInAt         DateTime
+  clockInGps        Json?             // {lat: number, lng: number}
+  clockOutAt        DateTime?
+  clockOutGps       Json?
+  inGeofenceIn      Boolean?          // 出勤時ジオフェンス内判定
+  outGeofenceIn     Boolean?          // 退勤時ジオフェンス内判定
+  breakAutoJson     Json?             // 自動休憩控除記録
+  workedMinutes     Int               @default(0)
+  overtimeMinutes   Int               @default(0)
+  nightMinutes      Int               @default(0) // 深夜労働分
+  holidayMinutes    Int               @default(0) // 休日労働分
+  status            AttendanceStatus  @default(OPEN)
+  correctionRequestId String?
+  notes             String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  user User  @relation(fields: [userId], references: [id])
+  site Site? @relation(fields: [siteId], references: [id])
+}
+
+enum AttendanceStatus {
+  OPEN        // 出勤中
+  CLOSED      // 完了
+  PENDING     // 修正待ち
+  APPROVED    // 承認済み
+}
+
+// 休憩ポリシーテーブル
+model BreakPolicy {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  slotsJson Json     // 休憩時間帯の配列
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+}
+
+// 業務日報テーブル
+model Report {
+  id          String    @id @default(cuid())
+  userId      String
+  siteId      String?
+  workDate    DateTime
+  content     String?   // 作業内容
+  quantity    Decimal?  @db.Decimal(10, 2) // 数量・出来高
+  photos      String[]  // 写真URL配列
+  safetyNotes String?   // 安全KY・注意事項
+  submittedAt DateTime?
+  approvedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user User  @relation(fields: [userId], references: [id])
+  site Site? @relation(fields: [siteId], references: [id])
+}
+
+// 休暇申請テーブル
+model Leave {
+  id         String      @id @default(cuid())
+  userId     String
+  type       LeaveType
+  startAt    DateTime
+  endAt      DateTime
+  hours      Decimal?    @db.Decimal(5, 2) // 時間数
+  reason     String?
+  status     LeaveStatus @default(PENDING)
+  approverId String?
+  approvedAt DateTime?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+enum LeaveType {
+  PAID_LEAVE    // 有給休暇
+  SICK_LEAVE    // 病欠
+  COMPENSATORY  // 代休
+  SPECIAL       // 特別休暇
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// 給与項目マスタテーブル
+model PayItem {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  type      PayType
+  unit      String?  // 単位（時間、回数など）
+  amount    Decimal  @db.Decimal(10, 2)
+  taxable   Boolean  @default(true)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+}
+
+enum PayType {
+  ALLOWANCE  // 手当
+  DEDUCTION  // 控除
+}
+
+// 給与計算ルールテーブル
+model PayRule {
+  id           String   @id @default(cuid())
+  companyId    String
+  name         String
+  formulaExpr  String   // 計算式（JSON形式）
+  roundingRule String?  // 端数処理ルール
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+}
+
+// 給与計算結果テーブル
+model Payroll {
+  id             String      @id @default(cuid())
+  companyId      String
+  userId         String
+  periodFrom     DateTime
+  periodTo       DateTime
+  grossAmount    Decimal     @db.Decimal(12, 2)
+  netAmount      Decimal     @db.Decimal(12, 2)
+  calcDetailJson Json?       // 計算詳細
+  status         PayrollStatus @default(DRAFT)
+  processedAt    DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+}
+
+enum PayrollStatus {
+  DRAFT
+  CALCULATED
+  APPROVED
+  PAID
+}
+
+// アラートテーブル
+model Alert {
+  id         String      @id @default(cuid())
+  companyId  String
+  userId     String?
+  kind       AlertKind
+  level      AlertLevel
+  title      String
+  message    String
+  payloadJson Json?
+  occurredAt DateTime    @default(now())
+  resolvedAt DateTime?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+}
+
+enum AlertKind {
+  OVERTIME_WARNING      // 残業警告
+  REPORT_MISSING       // 日報未提出
+  GEOFENCE_VIOLATION   // ジオフェンス違反
+  CLOCK_OUT_FORGOTTEN  // 退勤忘れ
+  LABOR_STANDARD_36    // 36協定違反
+}
+
+enum AlertLevel {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+// 監査ログテーブル
+model AuditLog {
+  id         String   @id @default(cuid())
+  companyId  String
+  actorId    String
+  entity     String   // テーブル名
+  entityId   String   // 対象レコードID
+  action     String   // CREATE, UPDATE, DELETE
+  beforeJson Json?
+  afterJson  Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id])
+  actor   User    @relation(fields: [actorId], references: [id])
+}
