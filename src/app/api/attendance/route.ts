@@ -4,11 +4,11 @@ import { requireAuth, checkUserAccess } from '@/lib/auth/utils'
 import { z } from 'zod'
 
 const attendanceQuerySchema = z.object({
-  userId: z.string().optional(),
-  siteId: z.string().optional(),
-  startDate: z.string().optional(),
-  endDate: z.string().optional(),
-  status: z.string().optional(),
+  userId: z.string().optional().nullable(),
+  siteId: z.string().optional().nullable(),
+  startDate: z.string().optional().nullable(),
+  endDate: z.string().optional().nullable(),
+  status: z.string().optional().nullable(),
   page: z.string().default('1'),
   limit: z.string().default('50')
 })
