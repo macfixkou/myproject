@@ -7,7 +7,7 @@ import { addMinutes, differenceInMinutes, format, isAfter, isBefore, parseISO } 
 export function calculateWorkTime(
   clockIn: Date,
   clockOut: Date,
-  breakPolicy?: BreakPolicy
+  breakPolicy?: any
 ): WorkTimeCalculation {
   const totalMinutes = differenceInMinutes(clockOut, clockIn)
   
@@ -45,7 +45,7 @@ export function calculateWorkTime(
 function calculateBreakTime(
   clockIn: Date,
   clockOut: Date,
-  breakPolicy?: BreakPolicy
+  breakPolicy?: any
 ): BreakPeriod[] {
   if (!breakPolicy?.slots) return []
   
@@ -96,7 +96,7 @@ function calculateNightTime(clockIn: Date, clockOut: Date): number {
 function calculateNightBreakTime(
   clockIn: Date,
   clockOut: Date,
-  breakPolicy?: BreakPolicy
+  breakPolicy?: any
 ): number {
   if (!breakPolicy?.slots) return 0
   

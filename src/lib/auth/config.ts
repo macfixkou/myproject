@@ -53,7 +53,7 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           role: user.role,
           companyId: user.companyId,
-          company: user.company.name,
+          company: user.company?.name || 'Unknown',
         }
       }
     })
@@ -95,10 +95,10 @@ export const authOptions: NextAuthOptions = {
             entity: 'auth',
             entityId: user.id,
             action: 'SIGN_IN',
-            afterJson: {
+            afterText: JSON.stringify({
               provider: account?.provider,
               timestamp: new Date().toISOString()
-            }
+            })
           }
         })
       }
@@ -113,9 +113,9 @@ export const authOptions: NextAuthOptions = {
             entity: 'auth',
             entityId: token.sub,
             action: 'SIGN_OUT',
-            afterJson: {
+            afterText: JSON.stringify({
               timestamp: new Date().toISOString()
-            }
+            })
           }
         })
       }

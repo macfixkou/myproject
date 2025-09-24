@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
     if (gps && site?.latitude && site?.longitude && site?.geofenceRadius) {
       inGeofence = isWithinGeofence(
         { lat: gps.lat, lng: gps.lng },
-        { lat: Number(site.latitude), lng: Number(site.longitude) },
+        { lat: site.latitude, lng: site.longitude },
         site.geofenceRadius
       )
     }
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
         userId: user.id,
         siteId: siteId || null,
         clockInAt: now,
-        clockInGps: gps || null,
+        clockInGpsText: gps ? JSON.stringify(gps) : null,
         inGeofenceIn: inGeofence,
         status: 'OPEN',
         notes: notes || null
@@ -113,12 +113,12 @@ export async function POST(request: NextRequest) {
         entity: 'attendance',
         entityId: attendance.id,
         action: 'CREATE',
-        afterJson: {
+        afterText: JSON.stringify({
           clockIn: now.toISOString(),
           site: site?.name,
           gps: gps,
           geofence: inGeofence
-        },
+        }),
         ipAddress: request.headers.get('x-forwarded-for') || 
                    request.headers.get('x-real-ip') || 
                    'unknown'
@@ -135,16 +135,11 @@ export async function POST(request: NextRequest) {
           level: 'WARNING',
           title: 'ジオフェンス外での出勤',
           message: `${user.name}さんが現場の指定範囲外で出勤しました`,
-          payloadJson: {
+          payloadText: JSON.stringify({
             attendanceId: attendance.id,
             siteName: site?.name,
-            distance: site?.latitude && site?.longitude ? 
-              Math.round(isWithinGeofence(
-                { lat: gps.lat, lng: gps.lng },
-                { lat: Number(site.latitude), lng: Number(site.longitude) },
-                0
-              )) : null
-          }
+            distance: 'unknown'
+          })
         }
       })
     }

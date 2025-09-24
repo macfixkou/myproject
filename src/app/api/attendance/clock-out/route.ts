@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
     if (gps && attendance.site?.latitude && attendance.site?.longitude && attendance.site?.geofenceRadius) {
       outGeofence = isWithinGeofence(
         { lat: gps.lat, lng: gps.lng },
-        { lat: Number(attendance.site.latitude), lng: Number(attendance.site.longitude) },
+        { lat: attendance.site.latitude, lng: attendance.site.longitude },
         attendance.site.geofenceRadius
       )
     }
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
     const now = new Date()
 
     // 労働時間を計算
-    const breakPolicy = company.breakPolicyJson as any
+    const breakPolicy = company.breakPolicyText ? JSON.parse(company.breakPolicyText) : null
     const workTimeCalc = calculateWorkTime(attendance.clockInAt, now, breakPolicy)
 
     // 退勤記録を更新
@@ -81,14 +81,14 @@ export async function POST(request: NextRequest) {
       where: { id: attendance.id },
       data: {
         clockOutAt: now,
-        clockOutGps: gps || null,
+        clockOutGpsText: gps ? JSON.stringify(gps) : null,
         outGeofenceIn: outGeofence,
         status: 'CLOSED',
         workedMinutes: workTimeCalc.workedMinutes,
         overtimeMinutes: workTimeCalc.overtimeMinutes,
         nightMinutes: workTimeCalc.nightMinutes,
         holidayMinutes: workTimeCalc.holidayMinutes,
-        breakAutoJson: workTimeCalc.breakDetails,
+        breakAutoText: JSON.stringify(workTimeCalc.breakDetails),
         notes: notes ? (attendance.notes ? `${attendance.notes}\n${notes}` : notes) : attendance.notes
       },
       include: {
