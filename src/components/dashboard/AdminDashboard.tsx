@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   UsersIcon,
   MapPinIcon,
@@ -44,6 +45,7 @@ interface DashboardStats {
 }
 
 export default function AdminDashboard({ user }: AdminDashboardProps) {
+  const router = useRouter()
   const [stats, setStats] = useState<DashboardStats>({
     todayAttendance: { total: 0, present: 0, absent: 0, late: 0 },
     weeklyStats: { totalHours: 0, overtimeHours: 0, activeSites: 0 },
@@ -145,38 +147,50 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
   return (
     <div className="space-y-8">
       {/* ヘッダー */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">
-          管理ダッシュボード
-        </h1>
-        <p className="text-gray-600">
-          {user.name}さん | 管理者
-        </p>
+      <div className="bg-gradient-to-r from-blue-600 to-blue-700 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-6 mb-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-white">
+              管理ホーム
+            </h1>
+            <p className="text-blue-100">
+              {user.name}さん | 管理者 | {new Date().toLocaleDateString('ja-JP')}
+            </p>
+          </div>
+          <div className="hidden sm:flex items-center space-x-3">
+            <div className="text-right">
+              <p className="text-sm text-blue-100">現在時刻</p>
+              <p className="text-lg font-semibold text-white">
+                {new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* 統計カード */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {statCards.map((card, index) => (
-          <div key={index} className="card">
-            <div className="card-body">
+          <div key={index} className="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-200">
+            <div className="p-6">
               <div className="flex items-center">
-                <div className={`p-3 rounded-lg ${card.bgColor}`}>
-                  <card.icon className={`h-6 w-6 ${card.color}`} />
+                <div className={`p-3 rounded-xl ${card.bgColor} shadow-sm`}>
+                  <card.icon className={`h-7 w-7 ${card.color}`} />
                 </div>
                 <div className="ml-4 flex-1">
-                  <p className="text-sm font-medium text-gray-600">{card.title}</p>
-                  <p className="text-2xl font-bold text-gray-900">{card.value}</p>
+                  <p className="text-sm font-medium text-gray-600 mb-1">{card.title}</p>
+                  <p className="text-3xl font-bold text-gray-900">{card.value}</p>
                   {card.subtitle && (
-                    <p className="text-sm text-gray-500">{card.subtitle}</p>
+                    <p className="text-sm text-gray-500 mt-1">{card.subtitle}</p>
                   )}
                 </div>
               </div>
               {card.details && (
-                <div className="mt-4 space-y-1">
+                <div className="mt-6 pt-4 border-t border-gray-100 space-y-2">
                   {card.details.map((detail, idx) => (
                     <div key={idx} className="flex justify-between text-sm">
                       <span className="text-gray-600">{detail.label}</span>
-                      <span className={detail.color}>{detail.value}</span>
+                      <span className={`font-medium ${detail.color}`}>{detail.value}</span>
                     </div>
                   ))}
                 </div>
@@ -186,139 +200,129 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* 最近の出勤記録 */}
-        <div className="lg:col-span-2">
-          <div className="card">
-            <div className="card-header">
-              <h3 className="text-lg font-semibold">最近の出勤記録</h3>
+      {/* 最近の出勤記録 */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+        <div className="p-6 border-b border-gray-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">最近の出勤記録</h3>
+              <p className="text-sm text-gray-600 mt-1">今日の出勤状況をリアルタイムで確認</p>
             </div>
-            <div className="card-body p-0">
-              <div className="table-responsive">
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>従業員</th>
-                      <th>現場</th>
-                      <th>出勤時刻</th>
-                      <th>退勤時刻</th>
-                      <th>状況</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentAttendances.length > 0 ? (
-                      recentAttendances.slice(0, 5).map((attendance: any) => (
-                        <tr key={attendance.id}>
-                          <td className="font-medium">
-                            {attendance.user?.name || 'N/A'}
-                          </td>
-                          <td>{attendance.site?.name || '未指定'}</td>
-                          <td>
-                            {new Date(attendance.clockInAt).toLocaleTimeString('ja-JP', {
+            <button 
+              onClick={() => router.push('/attendance')}
+              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+            >
+              すべて表示
+            </button>
+          </div>
+        </div>
+        <div className="p-0">
+          <div className="table-responsive">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>従業員</th>
+                  <th>現場</th>
+                  <th>出勤時刻</th>
+                  <th>退勤時刻</th>
+                  <th>状況</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentAttendances.length > 0 ? (
+                  recentAttendances.slice(0, 10).map((attendance: any) => (
+                    <tr key={attendance.id}>
+                      <td className="font-medium">
+                        {attendance.user?.name || 'N/A'}
+                      </td>
+                      <td>{attendance.site?.name || '未指定'}</td>
+                      <td>
+                        {new Date(attendance.clockInAt).toLocaleTimeString('ja-JP', {
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </td>
+                      <td>
+                        {attendance.clockOutAt 
+                          ? new Date(attendance.clockOutAt).toLocaleTimeString('ja-JP', {
                               hour: '2-digit',
                               minute: '2-digit'
-                            })}
-                          </td>
-                          <td>
-                            {attendance.clockOutAt 
-                              ? new Date(attendance.clockOutAt).toLocaleTimeString('ja-JP', {
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })
-                              : '勤務中'
-                            }
-                          </td>
-                          <td>
-                            <span className={`badge ${
-                              attendance.status === 'OPEN' ? 'badge-info' :
-                              attendance.status === 'CLOSED' ? 'badge-success' :
-                              'badge-warning'
-                            }`}>
-                              {attendance.status === 'OPEN' ? '出勤中' :
-                               attendance.status === 'CLOSED' ? '完了' :
-                               '要確認'}
-                            </span>
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={5} className="text-center py-8 text-gray-500">
-                          出勤記録がありません
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* クイックアクション */}
-        <div className="space-y-6">
-          <div className="card">
-            <div className="card-header">
-              <h3 className="text-lg font-semibold">クイックアクション</h3>
-            </div>
-            <div className="card-body space-y-3">
-              <button className="btn btn-primary w-full flex items-center justify-center">
-                <UsersIcon className="h-5 w-5 mr-2" />
-                従業員管理
-              </button>
-              <button className="btn btn-secondary w-full flex items-center justify-center">
-                <MapPinIcon className="h-5 w-5 mr-2" />
-                現場管理
-              </button>
-              <button className="btn btn-secondary w-full flex items-center justify-center">
-                <ChartBarIcon className="h-5 w-5 mr-2" />
-                勤怠集計
-              </button>
-              <button className="btn btn-secondary w-full flex items-center justify-center">
-                <DocumentTextIcon className="h-5 w-5 mr-2" />
-                日報確認
-              </button>
-            </div>
-          </div>
-
-          {/* 重要なアラート */}
-          {(stats.alerts.critical > 0 || stats.alerts.warning > 0) && (
-            <div className="card">
-              <div className="card-header">
-                <h3 className="text-lg font-semibold flex items-center">
-                  <ExclamationTriangleIcon className="h-5 w-5 mr-2 text-red-500" />
-                  重要なアラート
-                </h3>
-              </div>
-              <div className="card-body space-y-3">
-                {stats.alerts.critical > 0 && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                    <div className="text-sm text-red-800">
-                      <strong>緊急: {stats.alerts.critical}件</strong>
-                      <p className="text-xs mt-1">
-                        36協定違反の可能性があります
-                      </p>
-                    </div>
-                  </div>
+                            })
+                          : '勤務中'
+                        }
+                      </td>
+                      <td>
+                        <span className={`badge ${
+                          attendance.status === 'OPEN' ? 'badge-info' :
+                          attendance.status === 'CLOSED' ? 'badge-success' :
+                          'badge-warning'
+                        }`}>
+                          {attendance.status === 'OPEN' ? '出勤中' :
+                           attendance.status === 'CLOSED' ? '完了' :
+                           '要確認'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={5} className="text-center py-8 text-gray-500">
+                      出勤記録がありません
+                    </td>
+                  </tr>
                 )}
-                {stats.alerts.warning > 0 && (
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                    <div className="text-sm text-yellow-800">
-                      <strong>警告: {stats.alerts.warning}件</strong>
-                      <p className="text-xs mt-1">
-                        ジオフェンス外打刻やlong時間労働があります
-                      </p>
-                    </div>
-                  </div>
-                )}
-                <button className="btn btn-sm btn-danger w-full">
-                  すべてのアラートを確認
-                </button>
-              </div>
-            </div>
-          )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
+
+      {/* 重要なアラート */}
+      {(stats.alerts.critical > 0 || stats.alerts.warning > 0) && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+          <div className="p-6 border-b border-gray-100">
+            <h3 className="text-lg font-semibold flex items-center text-gray-900">
+              <ExclamationTriangleIcon className="h-5 w-5 mr-2 text-red-500" />
+              重要なアラート
+            </h3>
+            <p className="text-sm text-gray-600 mt-1">即座に対応が必要な項目</p>
+          </div>
+          <div className="p-6 space-y-4">
+            {stats.alerts.critical > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="text-sm text-red-800">
+                  <div className="font-semibold flex items-center">
+                    <ExclamationTriangleIcon className="h-4 w-4 mr-1" />
+                    緊急: {stats.alerts.critical}件
+                  </div>
+                  <p className="text-xs mt-2 text-red-700">
+                    36協定違反の可能性があります
+                  </p>
+                </div>
+              </div>
+            )}
+            {stats.alerts.warning > 0 && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div className="text-sm text-yellow-800">
+                  <div className="font-semibold flex items-center">
+                    <ExclamationTriangleIcon className="h-4 w-4 mr-1" />
+                    警告: {stats.alerts.warning}件
+                  </div>
+                  <p className="text-xs mt-2 text-yellow-700">
+                    ジオフェンス外打刻や長時間労働があります
+                  </p>
+                </div>
+              </div>
+            )}
+            <button 
+              onClick={() => router.push('/admin/alerts')}
+              className="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg text-sm transition-colors duration-200"
+            >
+              すべてのアラートを確認
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

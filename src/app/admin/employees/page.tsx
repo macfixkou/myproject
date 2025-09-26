@@ -15,7 +15,9 @@ import {
   PhoneIcon,
   EnvelopeIcon,
   ClockIcon,
-  ExclamationTriangleIcon
+  ExclamationTriangleIcon,
+  XMarkIcon,
+  CheckIcon
 } from '@heroicons/react/24/outline'
 
 interface Employee {
@@ -33,8 +35,28 @@ interface Employee {
   workHoursThisMonth: number
   overtimeHours: number
   lastPunchIn?: string
+  hourlyWage?: number
+  address?: string
+  emergencyContact?: string
+  emergencyPhone?: string
   createdAt: string
   updatedAt: string
+}
+
+interface EmployeeFormData {
+  name: string
+  email: string
+  phone: string
+  role: 'ADMIN' | 'MANAGER' | 'EMPLOYEE'
+  position: string
+  department: string
+  hireDate: string
+  status: 'ACTIVE' | 'INACTIVE'
+  currentSite: string
+  hourlyWage: number
+  address: string
+  emergencyContact: string
+  emergencyPhone: string
 }
 
 export default function EmployeesPage() {
@@ -46,6 +68,22 @@ export default function EmployeesPage() {
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [formData, setFormData] = useState<EmployeeFormData>({
+    name: '',
+    email: '',
+    phone: '',
+    role: 'EMPLOYEE',
+    position: '',
+    department: '施工部',
+    hireDate: new Date().toISOString().split('T')[0],
+    status: 'ACTIVE',
+    currentSite: '',
+    hourlyWage: 1500,
+    address: '',
+    emergencyContact: '',
+    emergencyPhone: ''
+  })
 
   // Mock employees data
   const mockEmployees: Employee[] = [
@@ -169,11 +207,41 @@ export default function EmployeesPage() {
 
   const handleCreateEmployee = () => {
     setSelectedEmployee(null)
+    setFormData({
+      name: '',
+      email: '',
+      phone: '',
+      role: 'EMPLOYEE',
+      position: '',
+      department: '施工部',
+      hireDate: new Date().toISOString().split('T')[0],
+      status: 'ACTIVE',
+      currentSite: '',
+      hourlyWage: 1500,
+      address: '',
+      emergencyContact: '',
+      emergencyPhone: ''
+    })
     setShowCreateModal(true)
   }
 
   const handleEditEmployee = (employee: Employee) => {
     setSelectedEmployee(employee)
+    setFormData({
+      name: employee.name,
+      email: employee.email,
+      phone: employee.phone,
+      role: employee.role,
+      position: employee.position,
+      department: employee.department,
+      hireDate: employee.hireDate,
+      status: employee.status,
+      currentSite: employee.currentSite || '',
+      hourlyWage: employee.hourlyWage || 1500,
+      address: employee.address || '',
+      emergencyContact: employee.emergencyContact || '',
+      emergencyPhone: employee.emergencyPhone || ''
+    })
     setShowCreateModal(true)
   }
 
@@ -181,6 +249,64 @@ export default function EmployeesPage() {
     if (confirm(`${employee.name}さんを削除してもよろしいですか？`)) {
       setEmployees(employees.filter(e => e.id !== employee.id))
     }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSaving(true)
+
+    try {
+      // バリデーション
+      if (!formData.name || !formData.email || !formData.phone) {
+        alert('必須項目を入力してください。')
+        return
+      }
+
+      // メールアドレスの重複チェック（編集時は自分自身を除外）
+      const duplicateEmail = employees.find(emp => 
+        emp.email === formData.email && emp.id !== selectedEmployee?.id
+      )
+      if (duplicateEmail) {
+        alert('このメールアドレスは既に登録されています。')
+        return
+      }
+
+      if (selectedEmployee) {
+        // 編集の場合
+        const updatedEmployee: Employee = {
+          ...selectedEmployee,
+          ...formData,
+          updatedAt: new Date().toISOString()
+        }
+        setEmployees(employees.map(emp => 
+          emp.id === selectedEmployee.id ? updatedEmployee : emp
+        ))
+      } else {
+        // 新規作成の場合
+        const newEmployee: Employee = {
+          id: Date.now().toString(),
+          ...formData,
+          companyId: 'company-1',
+          workHoursThisMonth: 0,
+          overtimeHours: 0,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+        setEmployees([...employees, newEmployee])
+      }
+
+      setShowCreateModal(false)
+      // TODO: API call to save to database
+    } catch (error) {
+      console.error('Employee save error:', error)
+      alert('保存中にエラーが発生しました。')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleInputChange = (field: keyof EmployeeFormData, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }))
   }
 
   if (loading) {
@@ -456,25 +582,268 @@ export default function EmployeesPage() {
           </div>
         </div>
 
-        {/* Create/Edit Modal Placeholder */}
+        {/* Create/Edit Modal */}
         {showCreateModal && (
-          <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
-                {selectedEmployee ? '従業員編集' : '従業員追加'}
-              </h3>
-              <p className="text-sm text-gray-600 mb-4">
-                詳細な従業員管理フォームは今後実装予定です。
-              </p>
-              <div className="flex justify-end space-x-3">
+          <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              {/* ヘッダー */}
+              <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <h3 className="text-lg font-medium text-gray-900 flex items-center">
+                  <UserCircleIcon className="h-5 w-5 mr-2" />
+                  {selectedEmployee ? '従業員編集' : '従業員追加'}
+                </h3>
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+                  className="text-gray-400 hover:text-gray-600"
                 >
-                  閉じる
+                  <XMarkIcon className="h-6 w-6" />
                 </button>
               </div>
+
+              {/* フォーム */}
+              <form onSubmit={handleSubmit} className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* 基本情報 */}
+                  <div className="md:col-span-2">
+                    <h4 className="text-md font-medium text-gray-900 mb-4 flex items-center">
+                      <UserCircleIcon className="h-5 w-5 mr-2" />
+                      基本情報
+                    </h4>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      氏名 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.name}
+                      onChange={(e) => handleInputChange('name', e.target.value)}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="例: 田中太郎"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      メールアドレス <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={formData.email}
+                      onChange={(e) => handleInputChange('email', e.target.value)}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="例: tanaka@construction.com"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      電話番号 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      value={formData.phone}
+                      onChange={(e) => handleInputChange('phone', e.target.value)}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="例: 090-1234-5678"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      住所
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.address}
+                      onChange={(e) => handleInputChange('address', e.target.value)}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="例: 東京都新宿区西新宿1-1-1"
+                    />
+                  </div>
+
+                  {/* 勤務情報 */}
+                  <div className="md:col-span-2 mt-6">
+                    <h4 className="text-md font-medium text-gray-900 mb-4 flex items-center">
+                      <BuildingOfficeIcon className="h-5 w-5 mr-2" />
+                      勤務情報
+                    </h4>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      役職 <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      required
+                      value={formData.role}
+                      onChange={(e) => handleInputChange('role', e.target.value as 'ADMIN' | 'MANAGER' | 'EMPLOYEE')}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="EMPLOYEE">従業員</option>
+                      <option value="MANAGER">マネージャー</option>
+                      <option value="ADMIN">管理者</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      職種
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.position}
+                      onChange={(e) => handleInputChange('position', e.target.value)}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="例: 現場監督、作業員、技能工"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      部署
+                    </label>
+                    <select
+                      value={formData.department}
+                      onChange={(e) => handleInputChange('department', e.target.value)}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="施工部">施工部</option>
+                      <option value="管理部">管理部</option>
+                      <option value="営業部">営業部</option>
+                      <option value="設計部">設計部</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      入社日 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={formData.hireDate}
+                      onChange={(e) => handleInputChange('hireDate', e.target.value)}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      配置現場
+                    </label>
+                    <select
+                      value={formData.currentSite}
+                      onChange={(e) => handleInputChange('currentSite', e.target.value)}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="">未配置</option>
+                      <option value="新宿オフィスビル建設現場">新宿オフィスビル建設現場</option>
+                      <option value="渋谷マンション改修工事">渋谷マンション改修工事</option>
+                      <option value="品川駅前商業施設建設">品川駅前商業施設建設</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      時給（円）
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="10"
+                      value={formData.hourlyWage}
+                      onChange={(e) => handleInputChange('hourlyWage', Number(e.target.value))}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="1500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      ステータス
+                    </label>
+                    <select
+                      value={formData.status}
+                      onChange={(e) => handleInputChange('status', e.target.value as 'ACTIVE' | 'INACTIVE')}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="ACTIVE">有効</option>
+                      <option value="INACTIVE">無効</option>
+                    </select>
+                  </div>
+
+                  {/* 緊急連絡先 */}
+                  <div className="md:col-span-2 mt-6">
+                    <h4 className="text-md font-medium text-gray-900 mb-4 flex items-center">
+                      <PhoneIcon className="h-5 w-5 mr-2" />
+                      緊急連絡先
+                    </h4>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      緊急連絡先氏名
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.emergencyContact}
+                      onChange={(e) => handleInputChange('emergencyContact', e.target.value)}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="例: 田中花子（配偶者）"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      緊急連絡先電話番号
+                    </label>
+                    <input
+                      type="tel"
+                      value={formData.emergencyPhone}
+                      onChange={(e) => handleInputChange('emergencyPhone', e.target.value)}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="例: 090-9876-5432"
+                    />
+                  </div>
+                </div>
+
+                {/* ボタン */}
+                <div className="flex justify-end space-x-3 mt-8 pt-6 border-t border-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateModal(false)}
+                    className="inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    キャンセル
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="inline-flex justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-400 disabled:cursor-not-allowed"
+                  >
+                    {saving ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        保存中...
+                      </>
+                    ) : (
+                      <>
+                        <CheckIcon className="h-4 w-4 mr-2" />
+                        {selectedEmployee ? '更新' : '作成'}
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}

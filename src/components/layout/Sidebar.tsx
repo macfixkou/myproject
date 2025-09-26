@@ -5,12 +5,11 @@ import { usePathname } from 'next/navigation'
 import {
   HomeIcon,
   ClockIcon,
-  MapPinIcon,
-  DocumentTextIcon,
   UsersIcon,
-  Cog6ToothIcon,
   CalendarIcon,
-  ExclamationTriangleIcon,
+  BanknotesIcon,
+  MapPinIcon,
+  Cog6ToothIcon,
 } from '@heroicons/react/24/outline'
 
 interface SidebarProps {
@@ -26,13 +25,12 @@ export default function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname()
 
   const navigation = [
-    { name: 'ダッシュボード', href: '/', icon: HomeIcon, roles: ['ADMIN', 'MANAGER', 'EMPLOYEE'] },
-    { name: '出退勤', href: '/attendance', icon: ClockIcon, roles: ['ADMIN', 'MANAGER', 'EMPLOYEE'] },
-    { name: '業務日報', href: '/reports', icon: DocumentTextIcon, roles: ['ADMIN', 'MANAGER', 'EMPLOYEE'] },
+    { name: 'ダッシュボード', href: '/home', icon: HomeIcon, roles: ['ADMIN', 'MANAGER', 'EMPLOYEE'] },
+    { name: '出退勤', href: '/attendance', icon: ClockIcon, roles: ['EMPLOYEE'] },
     { name: 'カレンダー', href: '/calendar', icon: CalendarIcon, roles: ['ADMIN', 'MANAGER', 'EMPLOYEE'] },
     { name: '従業員管理', href: '/admin/employees', icon: UsersIcon, roles: ['ADMIN', 'MANAGER'] },
     { name: '現場管理', href: '/admin/sites', icon: MapPinIcon, roles: ['ADMIN', 'MANAGER'] },
-    { name: 'アラート', href: '/admin/alerts', icon: ExclamationTriangleIcon, roles: ['ADMIN', 'MANAGER'] },
+    { name: '給与計算', href: '/admin/salary', icon: BanknotesIcon, roles: ['ADMIN', 'MANAGER'] },
     { name: '設定', href: '/admin/settings', icon: Cog6ToothIcon, roles: ['ADMIN'] },
   ]
 

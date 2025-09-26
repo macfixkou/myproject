@@ -3,42 +3,31 @@
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
-import Layout from '@/components/layout/Layout'
-import EmployeeDashboard from '@/components/dashboard/EmployeeDashboard'
-import AdminDashboard from '@/components/dashboard/AdminDashboard'
 
-export default function Home() {
+export default function RootPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
+    if (status === 'loading') return // まだ読み込み中
+
+    if (session) {
+      // ログイン済みの場合はホームページにリダイレクト
+      router.push('/home')
+    } else {
+      // 未ログインの場合はログインページにリダイレクト
       router.push('/auth/signin')
     }
-  }, [status, router])
+  }, [session, status, router])
 
-  if (status === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="loading-spinner w-8 h-8"></div>
-        <span className="ml-3 text-gray-600">読み込み中...</span>
-      </div>
-    )
-  }
-
-  if (!session) {
-    return null
-  }
-
+  // ローディング画面を表示
   return (
-    <Layout>
-      <div className="px-4 sm:px-6 lg:px-8 py-8">
-        {session.user.role === 'EMPLOYEE' ? (
-          <EmployeeDashboard user={session.user} />
-        ) : (
-          <AdminDashboard user={session.user} />
-        )}
+    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center">
+      <div className="text-center">
+        <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+        <h2 className="text-white text-xl font-semibold mb-2">勤怠管理システム</h2>
+        <p className="text-blue-100">読み込み中...</p>
       </div>
-    </Layout>
+    </div>
   )
 }

@@ -2,20 +2,17 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import Layout from '@/components/layout/Layout'
-import { 
+import { redirect, useRouter } from 'next/navigation'
+import {
   Cog6ToothIcon,
   BuildingOfficeIcon,
+  UserGroupIcon,
   ClockIcon,
   BellIcon,
-  UserGroupIcon,
   ShieldCheckIcon,
-  GlobeAltIcon,
-  DevicePhoneMobileIcon,
   DocumentTextIcon,
-  ExclamationTriangleIcon,
-  CheckCircleIcon,
-  MapPinIcon
+  HomeIcon,
+  CheckIcon,
 } from '@heroicons/react/24/outline'
 
 interface CompanySettings {
@@ -23,230 +20,272 @@ interface CompanySettings {
   address: string
   phone: string
   email: string
-  website: string
-  businessHours: {
-    start: string
-    end: string
-    breakStart: string
-    breakEnd: string
-    workingDays: string[]
-  }
+  taxId: string
 }
 
-interface WorkRules {
-  overtimeLimit: number // 36時間協定の上限
-  continuousWorkDaysLimit: number
-  minimumBreakTime: number // 分
-  lateThreshold: number // 分
-  earlyDepartureThreshold: number // 分
-  autoBreakDeduction: boolean
+interface WorkSettings {
+  standardWorkHours: number
+  overtimeRate: number
+  breakTime: number
+  startTime: string
+  endTime: string
+  workingDays: string[]
 }
 
-interface NotificationSettings {
-  overtimeWarningEnabled: boolean
-  overtimeWarningThreshold: number
-  continuousWorkWarningEnabled: boolean
-  lateArrivalNotificationEnabled: boolean
-  emailNotificationsEnabled: boolean
-  smsNotificationsEnabled: boolean
-  pushNotificationsEnabled: boolean
-  notificationRecipients: string[]
-}
-
-interface GeofenceSettings {
-  defaultRadius: number // meters
-  strictModeEnabled: boolean
-  allowedAccuracy: number // meters
-  requireLocationServices: boolean
+interface SystemSettings {
+  language: string
+  timezone: string
+  dateFormat: string
+  currency: string
+  backupFrequency: string
 }
 
 interface SecuritySettings {
-  sessionTimeout: number // minutes
-  passwordMinLength: number
-  requireTwoFactor: boolean
-  ipWhitelistEnabled: boolean
+  passwordPolicy: {
+    minLength: number
+    requireUppercase: boolean
+    requireLowercase: boolean
+    requireNumbers: boolean
+    requireSymbols: boolean
+    expirationDays: number
+  }
+  sessionTimeout: number
+  twoFactorAuth: boolean
   ipWhitelist: string[]
-  auditLogRetentionDays: number
+  loginAttempts: number
+  accountLockoutDuration: number
+  auditLogging: boolean
+  dataEncryption: boolean
 }
 
-export default function SettingsPage() {
-  const { data: session } = useSession()
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
+interface NotificationSettings {
+  email: {
+    enabled: boolean
+    newEmployee: boolean
+    attendanceAlerts: boolean
+    overtimeAlerts: boolean
+    salaryCalculation: boolean
+    systemUpdates: boolean
+    securityAlerts: boolean
+  }
+  sms: {
+    enabled: boolean
+    emergencyAlerts: boolean
+    lateArrival: boolean
+    absenceAlerts: boolean
+  }
+  push: {
+    enabled: boolean
+    realTimeAlerts: boolean
+    dailySummary: boolean
+    weeklyReports: boolean
+  }
+  alertThresholds: {
+    overtimeHours: number
+    consecutiveAbsences: number
+    lateArrivalMinutes: number
+  }
+}
+
+export default function AdminSettingsPage() {
+  const { data: session, status } = useSession()
+  const router = useRouter()
+  const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('company')
+  const [savedMessage, setSavedMessage] = useState('')
 
-  // Settings state
   const [companySettings, setCompanySettings] = useState<CompanySettings>({
-    companyName: '建設株式会社',
-    address: '東京都新宿区新宿1-1-1',
+    companyName: '株式会社サンプル建設',
+    address: '東京都新宿区西新宿1-1-1',
     phone: '03-1234-5678',
-    email: 'info@construction.com',
-    website: 'https://construction.com',
-    businessHours: {
-      start: '08:00',
-      end: '17:00',
-      breakStart: '12:00',
-      breakEnd: '13:00',
-      workingDays: ['月', '火', '水', '木', '金']
-    }
+    email: 'info@sample-construction.co.jp',
+    taxId: '1234567890'
   })
 
-  const [workRules, setWorkRules] = useState<WorkRules>({
-    overtimeLimit: 36,
-    continuousWorkDaysLimit: 6,
-    minimumBreakTime: 60,
-    lateThreshold: 30,
-    earlyDepartureThreshold: 30,
-    autoBreakDeduction: true
+  const [workSettings, setWorkSettings] = useState<WorkSettings>({
+    standardWorkHours: 8,
+    overtimeRate: 1.25,
+    breakTime: 60,
+    startTime: '08:00',
+    endTime: '17:00',
+    workingDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
   })
 
-  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
-    overtimeWarningEnabled: true,
-    overtimeWarningThreshold: 30,
-    continuousWorkWarningEnabled: true,
-    lateArrivalNotificationEnabled: true,
-    emailNotificationsEnabled: true,
-    smsNotificationsEnabled: false,
-    pushNotificationsEnabled: true,
-    notificationRecipients: ['admin@construction.com']
-  })
-
-  const [geofenceSettings, setGeofenceSettings] = useState<GeofenceSettings>({
-    defaultRadius: 50,
-    strictModeEnabled: false,
-    allowedAccuracy: 20,
-    requireLocationServices: true
+  const [systemSettings, setSystemSettings] = useState<SystemSettings>({
+    language: 'ja-JP',
+    timezone: 'Asia/Tokyo',
+    dateFormat: 'YYYY-MM-DD',
+    currency: 'JPY',
+    backupFrequency: 'daily'
   })
 
   const [securitySettings, setSecuritySettings] = useState<SecuritySettings>({
-    sessionTimeout: 480, // 8 hours
-    passwordMinLength: 8,
-    requireTwoFactor: false,
-    ipWhitelistEnabled: false,
+    passwordPolicy: {
+      minLength: 8,
+      requireUppercase: true,
+      requireLowercase: true,
+      requireNumbers: true,
+      requireSymbols: false,
+      expirationDays: 90
+    },
+    sessionTimeout: 30,
+    twoFactorAuth: false,
     ipWhitelist: [],
-    auditLogRetentionDays: 90
+    loginAttempts: 5,
+    accountLockoutDuration: 15,
+    auditLogging: true,
+    dataEncryption: true
+  })
+
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
+    email: {
+      enabled: true,
+      newEmployee: true,
+      attendanceAlerts: true,
+      overtimeAlerts: true,
+      salaryCalculation: false,
+      systemUpdates: true,
+      securityAlerts: true
+    },
+    sms: {
+      enabled: false,
+      emergencyAlerts: true,
+      lateArrival: true,
+      absenceAlerts: true
+    },
+    push: {
+      enabled: true,
+      realTimeAlerts: true,
+      dailySummary: false,
+      weeklyReports: true
+    },
+    alertThresholds: {
+      overtimeHours: 40,
+      consecutiveAbsences: 3,
+      lateArrivalMinutes: 15
+    }
   })
 
   useEffect(() => {
-    // Simulate loading settings
-    setTimeout(() => {
-      setLoading(false)
-    }, 1000)
-  }, [])
-
-  const handleSaveSettings = async () => {
-    setSaving(true)
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      alert('設定を保存しました')
-    } catch (error) {
-      alert('設定の保存に失敗しました')
-    } finally {
-      setSaving(false)
+    if (status === 'unauthenticated') {
+      redirect('/auth/signin')
     }
+    if (status === 'authenticated' && session?.user?.role !== 'ADMIN') {
+      redirect('/home')
+    }
+  }, [status, session])
+
+  const handleSave = async (settingsType: string) => {
+    setLoading(true)
+    try {
+      // TODO: API call to save settings
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      setSavedMessage(`${settingsType}設定を保存しました`)
+      setTimeout(() => setSavedMessage(''), 3000)
+    } catch (error) {
+      console.error('Settings save error:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleGoHome = () => {
+    router.push('/home')
   }
 
   const tabs = [
     { id: 'company', name: '会社情報', icon: BuildingOfficeIcon },
-    { id: 'work-rules', name: '就業規則', icon: ClockIcon },
+    { id: 'work', name: '勤務設定', icon: ClockIcon },
+    { id: 'system', name: 'システム設定', icon: Cog6ToothIcon },
+    { id: 'security', name: 'セキュリティ', icon: ShieldCheckIcon },
     { id: 'notifications', name: '通知設定', icon: BellIcon },
-    { id: 'geofence', name: 'GPS設定', icon: MapPinIcon },
-    { id: 'security', name: 'セキュリティ', icon: ShieldCheckIcon }
   ]
 
-  if (loading) {
+  if (status === 'loading') {
     return (
-      <Layout>
-        <div className="flex items-center justify-center min-h-64">
-          <div className="loading-spinner w-8 h-8"></div>
-          <span className="ml-3 text-gray-600">読み込み中...</span>
-        </div>
-      </Layout>
+      <div className="flex items-center justify-center py-8">
+        <div className="loading-spinner w-8 h-8"></div>
+        <span className="ml-3 text-gray-600">設定を読み込み中...</span>
+      </div>
     )
   }
 
+  if (!session?.user) {
+    return null
+  }
+
   return (
-    <Layout>
-      <div className="px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="sm:flex sm:items-center sm:justify-between">
-          <div className="sm:flex-auto">
-            <h1 className="text-2xl font-semibold text-gray-900">システム設定</h1>
-            <p className="mt-2 text-sm text-gray-700">
-              勤怠管理システムの各種設定を管理します。
+    <div className="space-y-8">
+      {/* ホームボタン */}
+      <div className="mb-4">
+        <button
+          onClick={handleGoHome}
+          className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+        >
+          <HomeIcon className="h-4 w-4 mr-2" />
+          ホームに戻る
+        </button>
+      </div>
+
+      {/* ヘッダー */}
+      <div className="bg-gradient-to-r from-gray-600 to-gray-700 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-6 mb-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-white flex items-center">
+              <Cog6ToothIcon className="h-8 w-8 mr-3" />
+              システム設定
+            </h1>
+            <p className="text-gray-100 mt-1">
+              会社情報や勤務設定、システム全般の設定を管理します
             </p>
           </div>
-          <div className="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
-            <button
-              type="button"
-              onClick={handleSaveSettings}
-              disabled={saving}
-              className="block rounded-md bg-primary-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-primary-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {saving ? (
-                <>
-                  <div className="inline-block w-4 h-4 mr-2 loading-spinner"></div>
-                  保存中...
-                </>
-              ) : (
-                <>
-                  <CheckCircleIcon className="h-4 w-4 inline mr-2" />
-                  設定を保存
-                </>
-              )}
-            </button>
-          </div>
         </div>
+      </div>
 
-        <div className="mt-8">
-          <div className="sm:hidden">
-            <label htmlFor="tabs" className="sr-only">
-              Select a tab
-            </label>
-            <select
-              id="tabs"
-              value={activeTab}
-              onChange={(e) => setActiveTab(e.target.value)}
-              className="block w-full rounded-md border-gray-300 focus:border-primary-500 focus:ring-primary-500"
-            >
-              {tabs.map((tab) => (
-                <option key={tab.id} value={tab.id}>
-                  {tab.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          <div className="hidden sm:block">
-            <div className="border-b border-gray-200">
-              <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-                {tabs.map((tab) => {
-                  const Icon = tab.icon
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`${
-                        activeTab === tab.id
-                          ? 'border-primary-500 text-primary-600'
-                          : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                      } whitespace-nowrap border-b-2 py-2 px-1 text-sm font-medium flex items-center`}
-                    >
-                      <Icon className="h-4 w-4 mr-2" />
-                      {tab.name}
-                    </button>
-                  )
-                })}
-              </nav>
+      {/* 保存メッセージ */}
+      {savedMessage && (
+        <div className="bg-green-50 border border-green-200 rounded-md p-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <CheckIcon className="h-5 w-5 text-green-400" />
+            </div>
+            <div className="ml-3">
+              <p className="text-sm font-medium text-green-800">{savedMessage}</p>
             </div>
           </div>
+        </div>
+      )}
 
-          {/* Tab Content */}
-          <div className="mt-8">
-            {activeTab === 'company' && (
-              <div className="bg-white shadow rounded-lg p-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-6">会社基本情報</h3>
+      {/* タブナビゲーション */}
+      <div className="bg-white shadow rounded-lg">
+        <div className="border-b border-gray-200">
+          <nav className="-mb-px flex space-x-8 px-6" aria-label="Tabs">
+            {tabs.map((tab) => {
+              const isActive = activeTab === tab.id
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`${
+                    isActive
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
+                >
+                  <tab.icon className="h-5 w-5 mr-2" />
+                  {tab.name}
+                </button>
+              )
+            })}
+          </nav>
+        </div>
+
+        <div className="p-6">
+          {/* 会社情報タブ */}
+          {activeTab === 'company' && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">会社基本情報</h3>
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                   <div>
                     <label className="block text-sm font-medium text-gray-700">会社名</label>
@@ -254,16 +293,16 @@ export default function SettingsPage() {
                       type="text"
                       value={companySettings.companyName}
                       onChange={(e) => setCompanySettings({...companySettings, companyName: e.target.value})}
-                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">電話番号</label>
+                    <label className="block text-sm font-medium text-gray-700">法人番号</label>
                     <input
-                      type="tel"
-                      value={companySettings.phone}
-                      onChange={(e) => setCompanySettings({...companySettings, phone: e.target.value})}
-                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
+                      type="text"
+                      value={companySettings.taxId}
+                      onChange={(e) => setCompanySettings({...companySettings, taxId: e.target.value})}
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
                   <div className="sm:col-span-2">
@@ -272,7 +311,16 @@ export default function SettingsPage() {
                       type="text"
                       value={companySettings.address}
                       onChange={(e) => setCompanySettings({...companySettings, address: e.target.value})}
-                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">電話番号</label>
+                    <input
+                      type="tel"
+                      value={companySettings.phone}
+                      onChange={(e) => setCompanySettings({...companySettings, phone: e.target.value})}
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
                   <div>
@@ -281,364 +329,609 @@ export default function SettingsPage() {
                       type="email"
                       value={companySettings.email}
                       onChange={(e) => setCompanySettings({...companySettings, email: e.target.value})}
-                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">ウェブサイト</label>
-                    <input
-                      type="url"
-                      value={companySettings.website}
-                      onChange={(e) => setCompanySettings({...companySettings, website: e.target.value})}
-                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
                 </div>
-                
-                <h4 className="text-md font-medium text-gray-900 mt-8 mb-4">標準勤務時間</h4>
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <div className="mt-6">
+                  <button
+                    onClick={() => handleSave('会社情報')}
+                    disabled={loading}
+                    className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200"
+                  >
+                    {loading ? '保存中...' : '保存'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 勤務設定タブ */}
+          {activeTab === 'work' && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">勤務時間設定</h3>
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">開始時間</label>
+                    <label className="block text-sm font-medium text-gray-700">標準勤務時間（時間）</label>
                     <input
-                      type="time"
-                      value={companySettings.businessHours.start}
-                      onChange={(e) => setCompanySettings({
-                        ...companySettings,
-                        businessHours: {...companySettings.businessHours, start: e.target.value}
-                      })}
-                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
+                      type="number"
+                      value={workSettings.standardWorkHours}
+                      onChange={(e) => setWorkSettings({...workSettings, standardWorkHours: Number(e.target.value)})}
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">終了時間</label>
+                    <label className="block text-sm font-medium text-gray-700">残業割増率</label>
                     <input
-                      type="time"
-                      value={companySettings.businessHours.end}
-                      onChange={(e) => setCompanySettings({
-                        ...companySettings,
-                        businessHours: {...companySettings.businessHours, end: e.target.value}
-                      })}
-                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
+                      type="number"
+                      step="0.01"
+                      value={workSettings.overtimeRate}
+                      onChange={(e) => setWorkSettings({...workSettings, overtimeRate: Number(e.target.value)})}
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">休憩開始</label>
+                    <label className="block text-sm font-medium text-gray-700">開始時刻</label>
                     <input
                       type="time"
-                      value={companySettings.businessHours.breakStart}
-                      onChange={(e) => setCompanySettings({
-                        ...companySettings,
-                        businessHours: {...companySettings.businessHours, breakStart: e.target.value}
-                      })}
-                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
+                      value={workSettings.startTime}
+                      onChange={(e) => setWorkSettings({...workSettings, startTime: e.target.value})}
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">休憩終了</label>
+                    <label className="block text-sm font-medium text-gray-700">終了時刻</label>
                     <input
                       type="time"
-                      value={companySettings.businessHours.breakEnd}
-                      onChange={(e) => setCompanySettings({
-                        ...companySettings,
-                        businessHours: {...companySettings.businessHours, breakEnd: e.target.value}
-                      })}
-                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
+                      value={workSettings.endTime}
+                      onChange={(e) => setWorkSettings({...workSettings, endTime: e.target.value})}
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">休憩時間（分）</label>
+                    <input
+                      type="number"
+                      value={workSettings.breakTime}
+                      onChange={(e) => setWorkSettings({...workSettings, breakTime: Number(e.target.value)})}
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-3">勤務日</label>
+                  <div className="grid grid-cols-7 gap-2">
+                    {[
+                      { id: 'monday', label: '月' },
+                      { id: 'tuesday', label: '火' },
+                      { id: 'wednesday', label: '水' },
+                      { id: 'thursday', label: '木' },
+                      { id: 'friday', label: '金' },
+                      { id: 'saturday', label: '土' },
+                      { id: 'sunday', label: '日' }
+                    ].map((day) => (
+                      <label key={day.id} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={workSettings.workingDays.includes(day.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setWorkSettings({
+                                ...workSettings,
+                                workingDays: [...workSettings.workingDays, day.id]
+                              })
+                            } else {
+                              setWorkSettings({
+                                ...workSettings,
+                                workingDays: workSettings.workingDays.filter(d => d !== day.id)
+                              })
+                            }
+                          }}
+                          className="rounded border-gray-300 focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-gray-700">{day.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-6">
+                  <button
+                    onClick={() => handleSave('勤務')}
+                    disabled={loading}
+                    className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200"
+                  >
+                    {loading ? '保存中...' : '保存'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* システム設定タブ */}
+          {activeTab === 'system' && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">システム基本設定</h3>
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">言語</label>
+                    <select
+                      value={systemSettings.language}
+                      onChange={(e) => setSystemSettings({...systemSettings, language: e.target.value})}
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="ja-JP">日本語</option>
+                      <option value="en-US">English</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">タイムゾーン</label>
+                    <select
+                      value={systemSettings.timezone}
+                      onChange={(e) => setSystemSettings({...systemSettings, timezone: e.target.value})}
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="Asia/Tokyo">Asia/Tokyo (JST)</option>
+                      <option value="UTC">UTC</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">日付形式</label>
+                    <select
+                      value={systemSettings.dateFormat}
+                      onChange={(e) => setSystemSettings({...systemSettings, dateFormat: e.target.value})}
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                      <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                      <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">通貨</label>
+                    <select
+                      value={systemSettings.currency}
+                      onChange={(e) => setSystemSettings({...systemSettings, currency: e.target.value})}
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="JPY">日本円 (JPY)</option>
+                      <option value="USD">米ドル (USD)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">バックアップ頻度</label>
+                    <select
+                      value={systemSettings.backupFrequency}
+                      onChange={(e) => setSystemSettings({...systemSettings, backupFrequency: e.target.value})}
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="daily">毎日</option>
+                      <option value="weekly">毎週</option>
+                      <option value="monthly">毎月</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="mt-6">
+                  <button
+                    onClick={() => handleSave('システム')}
+                    disabled={loading}
+                    className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200"
+                  >
+                    {loading ? '保存中...' : '保存'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* セキュリティ設定タブ */}
+          {activeTab === 'security' && (
+            <div className="space-y-6">
+              {/* パスワードポリシー */}
+              <div>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">パスワードポリシー</h3>
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">最小文字数</label>
+                    <input
+                      type="number"
+                      min="6"
+                      max="32"
+                      value={securitySettings.passwordPolicy.minLength}
+                      onChange={(e) => setSecuritySettings({
+                        ...securitySettings,
+                        passwordPolicy: {
+                          ...securitySettings.passwordPolicy,
+                          minLength: Number(e.target.value)
+                        }
+                      })}
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">パスワード有効期限（日）</label>
+                    <input
+                      type="number"
+                      min="30"
+                      max="365"
+                      value={securitySettings.passwordPolicy.expirationDays}
+                      onChange={(e) => setSecuritySettings({
+                        ...securitySettings,
+                        passwordPolicy: {
+                          ...securitySettings.passwordPolicy,
+                          expirationDays: Number(e.target.value)
+                        }
+                      })}
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-3">必須文字種</label>
+                  <div className="space-y-3">
+                    {[
+                      { key: 'requireUppercase', label: '大文字 (A-Z)' },
+                      { key: 'requireLowercase', label: '小文字 (a-z)' },
+                      { key: 'requireNumbers', label: '数字 (0-9)' },
+                      { key: 'requireSymbols', label: '記号 (!@#$...)' }
+                    ].map((item) => (
+                      <label key={item.key} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={securitySettings.passwordPolicy[item.key as keyof typeof securitySettings.passwordPolicy] as boolean}
+                          onChange={(e) => setSecuritySettings({
+                            ...securitySettings,
+                            passwordPolicy: {
+                              ...securitySettings.passwordPolicy,
+                              [item.key]: e.target.checked
+                            }
+                          })}
+                          className="rounded border-gray-300 focus:ring-blue-500"
+                        />
+                        <span className="ml-2 text-sm text-gray-700">{item.label}</span>
+                      </label>
+                    ))}
                   </div>
                 </div>
               </div>
-            )}
 
-            {activeTab === 'work-rules' && (
-              <div className="bg-white shadow rounded-lg p-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-6">就業規則設定</h3>
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">36時間協定上限（時間/月）</label>
-                      <input
-                        type="number"
-                        value={workRules.overtimeLimit}
-                        onChange={(e) => setWorkRules({...workRules, overtimeLimit: parseInt(e.target.value)})}
-                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
-                      />
-                      <p className="mt-1 text-sm text-gray-500">
-                        月の残業時間がこの値を超えるとアラートが発生します
-                      </p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">連続勤務日数上限（日）</label>
-                      <input
-                        type="number"
-                        value={workRules.continuousWorkDaysLimit}
-                        onChange={(e) => setWorkRules({...workRules, continuousWorkDaysLimit: parseInt(e.target.value)})}
-                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">最低休憩時間（分）</label>
-                      <input
-                        type="number"
-                        value={workRules.minimumBreakTime}
-                        onChange={(e) => setWorkRules({...workRules, minimumBreakTime: parseInt(e.target.value)})}
-                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">遅刻判定時間（分）</label>
-                      <input
-                        type="number"
-                        value={workRules.lateThreshold}
-                        onChange={(e) => setWorkRules({...workRules, lateThreshold: parseInt(e.target.value)})}
-                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
-                      />
-                    </div>
+              {/* セッション・ログイン設定 */}
+              <div className="border-t border-gray-200 pt-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">セッション・ログイン設定</h3>
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">セッションタイムアウト（分）</label>
+                    <input
+                      type="number"
+                      min="5"
+                      max="480"
+                      value={securitySettings.sessionTimeout}
+                      onChange={(e) => setSecuritySettings({
+                        ...securitySettings,
+                        sessionTimeout: Number(e.target.value)
+                      })}
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
                   </div>
-                  
-                  <div className="flex items-center">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">ログイン試行回数制限</label>
+                    <input
+                      type="number"
+                      min="3"
+                      max="10"
+                      value={securitySettings.loginAttempts}
+                      onChange={(e) => setSecuritySettings({
+                        ...securitySettings,
+                        loginAttempts: Number(e.target.value)
+                      })}
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">アカウントロック時間（分）</label>
+                    <input
+                      type="number"
+                      min="5"
+                      max="60"
+                      value={securitySettings.accountLockoutDuration}
+                      onChange={(e) => setSecuritySettings({
+                        ...securitySettings,
+                        accountLockoutDuration: Number(e.target.value)
+                      })}
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-6 space-y-3">
+                  <label className="flex items-center">
                     <input
                       type="checkbox"
-                      id="auto-break"
-                      checked={workRules.autoBreakDeduction}
-                      onChange={(e) => setWorkRules({...workRules, autoBreakDeduction: e.target.checked})}
-                      className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                      checked={securitySettings.twoFactorAuth}
+                      onChange={(e) => setSecuritySettings({
+                        ...securitySettings,
+                        twoFactorAuth: e.target.checked
+                      })}
+                      className="rounded border-gray-300 focus:ring-blue-500"
                     />
-                    <label htmlFor="auto-break" className="ml-2 block text-sm text-gray-900">
-                      休憩時間を自動で労働時間から控除する
-                    </label>
-                  </div>
+                    <span className="ml-2 text-sm text-gray-700">二要素認証を有効化</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={securitySettings.auditLogging}
+                      onChange={(e) => setSecuritySettings({
+                        ...securitySettings,
+                        auditLogging: e.target.checked
+                      })}
+                      className="rounded border-gray-300 focus:ring-blue-500"
+                    />
+                    <span className="ml-2 text-sm text-gray-700">監査ログを記録</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={securitySettings.dataEncryption}
+                      onChange={(e) => setSecuritySettings({
+                        ...securitySettings,
+                        dataEncryption: e.target.checked
+                      })}
+                      className="rounded border-gray-300 focus:ring-blue-500"
+                    />
+                    <span className="ml-2 text-sm text-gray-700">データ暗号化</span>
+                  </label>
                 </div>
               </div>
-            )}
 
-            {activeTab === 'notifications' && (
-              <div className="bg-white shadow rounded-lg p-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-6">通知設定</h3>
-                <div className="space-y-6">
+              {/* IPホワイトリスト */}
+              <div className="border-t border-gray-200 pt-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">IPアドレス制限</h3>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">許可IPアドレス（1行に1つ）</label>
+                  <textarea
+                    rows={4}
+                    value={securitySettings.ipWhitelist.join('\n')}
+                    onChange={(e) => setSecuritySettings({
+                      ...securitySettings,
+                      ipWhitelist: e.target.value.split('\n').filter(ip => ip.trim())
+                    })}
+                    placeholder="192.168.1.0/24&#10;10.0.0.1&#10;203.0.113.0/24"
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <p className="mt-1 text-sm text-gray-500">
+                    空白の場合、すべてのIPアドレスからのアクセスが許可されます
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6">
+                <button
+                  onClick={() => handleSave('セキュリティ')}
+                  disabled={loading}
+                  className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200"
+                >
+                  {loading ? '保存中...' : '保存'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 通知設定タブ */}
+          {activeTab === 'notifications' && (
+            <div className="space-y-6">
+              {/* メール通知 */}
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-medium text-gray-900">メール通知</h3>
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={notificationSettings.email.enabled}
+                      onChange={(e) => setNotificationSettings({
+                        ...notificationSettings,
+                        email: { ...notificationSettings.email, enabled: e.target.checked }
+                      })}
+                      className="rounded border-gray-300 focus:ring-blue-500"
+                    />
+                    <span className="ml-2 text-sm font-medium text-gray-700">メール通知を有効化</span>
+                  </label>
+                </div>
+
+                {notificationSettings.email.enabled && (
+                  <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                    {[
+                      { key: 'newEmployee', label: '新入従業員登録' },
+                      { key: 'attendanceAlerts', label: '出退勤アラート' },
+                      { key: 'overtimeAlerts', label: '残業時間アラート' },
+                      { key: 'salaryCalculation', label: '給与計算完了' },
+                      { key: 'systemUpdates', label: 'システム更新' },
+                      { key: 'securityAlerts', label: 'セキュリティアラート' }
+                    ].map((item) => (
+                      <label key={item.key} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={notificationSettings.email[item.key as keyof typeof notificationSettings.email] as boolean}
+                          onChange={(e) => setNotificationSettings({
+                            ...notificationSettings,
+                            email: {
+                              ...notificationSettings.email,
+                              [item.key]: e.target.checked
+                            }
+                          })}
+                          className="rounded border-gray-300 focus:ring-blue-500"
+                        />
+                        <span className="ml-2 text-sm text-gray-700">{item.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* SMS通知 */}
+              <div className="border-t border-gray-200 pt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-medium text-gray-900">SMS通知</h3>
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={notificationSettings.sms.enabled}
+                      onChange={(e) => setNotificationSettings({
+                        ...notificationSettings,
+                        sms: { ...notificationSettings.sms, enabled: e.target.checked }
+                      })}
+                      className="rounded border-gray-300 focus:ring-blue-500"
+                    />
+                    <span className="ml-2 text-sm font-medium text-gray-700">SMS通知を有効化</span>
+                  </label>
+                </div>
+
+                {notificationSettings.sms.enabled && (
+                  <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                    {[
+                      { key: 'emergencyAlerts', label: '緊急アラート' },
+                      { key: 'lateArrival', label: '遅刻通知' },
+                      { key: 'absenceAlerts', label: '欠勤アラート' }
+                    ].map((item) => (
+                      <label key={item.key} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={notificationSettings.sms[item.key as keyof typeof notificationSettings.sms] as boolean}
+                          onChange={(e) => setNotificationSettings({
+                            ...notificationSettings,
+                            sms: {
+                              ...notificationSettings.sms,
+                              [item.key]: e.target.checked
+                            }
+                          })}
+                          className="rounded border-gray-300 focus:ring-blue-500"
+                        />
+                        <span className="ml-2 text-sm text-gray-700">{item.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* プッシュ通知 */}
+              <div className="border-t border-gray-200 pt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-medium text-gray-900">プッシュ通知</h3>
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={notificationSettings.push.enabled}
+                      onChange={(e) => setNotificationSettings({
+                        ...notificationSettings,
+                        push: { ...notificationSettings.push, enabled: e.target.checked }
+                      })}
+                      className="rounded border-gray-300 focus:ring-blue-500"
+                    />
+                    <span className="ml-2 text-sm font-medium text-gray-700">プッシュ通知を有効化</span>
+                  </label>
+                </div>
+
+                {notificationSettings.push.enabled && (
+                  <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                    {[
+                      { key: 'realTimeAlerts', label: 'リアルタイムアラート' },
+                      { key: 'dailySummary', label: '日次サマリー' },
+                      { key: 'weeklyReports', label: '週次レポート' }
+                    ].map((item) => (
+                      <label key={item.key} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={notificationSettings.push[item.key as keyof typeof notificationSettings.push] as boolean}
+                          onChange={(e) => setNotificationSettings({
+                            ...notificationSettings,
+                            push: {
+                              ...notificationSettings.push,
+                              [item.key]: e.target.checked
+                            }
+                          })}
+                          className="rounded border-gray-300 focus:ring-blue-500"
+                        />
+                        <span className="ml-2 text-sm text-gray-700">{item.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* アラート閾値 */}
+              <div className="border-t border-gray-200 pt-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">アラート閾値設定</h3>
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
                   <div>
-                    <h4 className="text-md font-medium text-gray-900 mb-4">アラート通知</h4>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <label className="text-sm font-medium text-gray-900">残業時間警告</label>
-                          <p className="text-sm text-gray-500">残業時間が上限に近づいた時の警告</p>
-                        </div>
-                        <input
-                          type="checkbox"
-                          checked={notificationSettings.overtimeWarningEnabled}
-                          onChange={(e) => setNotificationSettings({...notificationSettings, overtimeWarningEnabled: e.target.checked})}
-                          className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                        />
-                      </div>
-                      
-                      {notificationSettings.overtimeWarningEnabled && (
-                        <div className="ml-6">
-                          <label className="block text-sm font-medium text-gray-700">警告閾値（時間）</label>
-                          <input
-                            type="number"
-                            value={notificationSettings.overtimeWarningThreshold}
-                            onChange={(e) => setNotificationSettings({...notificationSettings, overtimeWarningThreshold: parseInt(e.target.value)})}
-                            className="mt-1 block w-32 border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
-                          />
-                        </div>
-                      )}
-                    </div>
+                    <label className="block text-sm font-medium text-gray-700">残業時間アラート（時間/月）</label>
+                    <input
+                      type="number"
+                      min="20"
+                      max="80"
+                      value={notificationSettings.alertThresholds.overtimeHours}
+                      onChange={(e) => setNotificationSettings({
+                        ...notificationSettings,
+                        alertThresholds: {
+                          ...notificationSettings.alertThresholds,
+                          overtimeHours: Number(e.target.value)
+                        }
+                      })}
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
                   </div>
-
                   <div>
-                    <h4 className="text-md font-medium text-gray-900 mb-4">通知方法</h4>
-                    <div className="space-y-3">
-                      <div className="flex items-center">
-                        <input
-                          type="checkbox"
-                          id="email-notifications"
-                          checked={notificationSettings.emailNotificationsEnabled}
-                          onChange={(e) => setNotificationSettings({...notificationSettings, emailNotificationsEnabled: e.target.checked})}
-                          className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                        />
-                        <label htmlFor="email-notifications" className="ml-2 text-sm text-gray-900">
-                          メール通知
-                        </label>
-                      </div>
-                      <div className="flex items-center">
-                        <input
-                          type="checkbox"
-                          id="sms-notifications"
-                          checked={notificationSettings.smsNotificationsEnabled}
-                          onChange={(e) => setNotificationSettings({...notificationSettings, smsNotificationsEnabled: e.target.checked})}
-                          className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                        />
-                        <label htmlFor="sms-notifications" className="ml-2 text-sm text-gray-900">
-                          SMS通知
-                        </label>
-                      </div>
-                      <div className="flex items-center">
-                        <input
-                          type="checkbox"
-                          id="push-notifications"
-                          checked={notificationSettings.pushNotificationsEnabled}
-                          onChange={(e) => setNotificationSettings({...notificationSettings, pushNotificationsEnabled: e.target.checked})}
-                          className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                        />
-                        <label htmlFor="push-notifications" className="ml-2 text-sm text-gray-900">
-                          プッシュ通知
-                        </label>
-                      </div>
-                    </div>
+                    <label className="block text-sm font-medium text-gray-700">連続欠勤アラート（日）</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="7"
+                      value={notificationSettings.alertThresholds.consecutiveAbsences}
+                      onChange={(e) => setNotificationSettings({
+                        ...notificationSettings,
+                        alertThresholds: {
+                          ...notificationSettings.alertThresholds,
+                          consecutiveAbsences: Number(e.target.value)
+                        }
+                      })}
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">遅刻アラート（分）</label>
+                    <input
+                      type="number"
+                      min="5"
+                      max="60"
+                      value={notificationSettings.alertThresholds.lateArrivalMinutes}
+                      onChange={(e) => setNotificationSettings({
+                        ...notificationSettings,
+                        alertThresholds: {
+                          ...notificationSettings.alertThresholds,
+                          lateArrivalMinutes: Number(e.target.value)
+                        }
+                      })}
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
                   </div>
                 </div>
               </div>
-            )}
 
-            {activeTab === 'geofence' && (
-              <div className="bg-white shadow rounded-lg p-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-6">GPS・ジオフェンス設定</h3>
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">デフォルト半径（メートル）</label>
-                      <input
-                        type="number"
-                        value={geofenceSettings.defaultRadius}
-                        onChange={(e) => setGeofenceSettings({...geofenceSettings, defaultRadius: parseInt(e.target.value)})}
-                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
-                      />
-                      <p className="mt-1 text-sm text-gray-500">
-                        新しい現場のデフォルトジオフェンス半径
-                      </p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">許可GPS精度（メートル）</label>
-                      <input
-                        type="number"
-                        value={geofenceSettings.allowedAccuracy}
-                        onChange={(e) => setGeofenceSettings({...geofenceSettings, allowedAccuracy: parseInt(e.target.value)})}
-                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
-                      />
-                      <p className="mt-1 text-sm text-gray-500">
-                        この精度以下のGPS情報のみ受け入れる
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="strict-mode"
-                        checked={geofenceSettings.strictModeEnabled}
-                        onChange={(e) => setGeofenceSettings({...geofenceSettings, strictModeEnabled: e.target.checked})}
-                        className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                      />
-                      <label htmlFor="strict-mode" className="ml-2 block text-sm text-gray-900">
-                        厳密モード（ジオフェンス外での打刻を禁止）
-                      </label>
-                    </div>
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="require-location"
-                        checked={geofenceSettings.requireLocationServices}
-                        onChange={(e) => setGeofenceSettings({...geofenceSettings, requireLocationServices: e.target.checked})}
-                        className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                      />
-                      <label htmlFor="require-location" className="ml-2 block text-sm text-gray-900">
-                        位置情報サービスを必須とする
-                      </label>
-                    </div>
-                  </div>
-                </div>
+              <div className="mt-6">
+                <button
+                  onClick={() => handleSave('通知')}
+                  disabled={loading}
+                  className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200"
+                >
+                  {loading ? '保存中...' : '保存'}
+                </button>
               </div>
-            )}
-
-            {activeTab === 'security' && (
-              <div className="bg-white shadow rounded-lg p-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-6">セキュリティ設定</h3>
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">セッションタイムアウト（分）</label>
-                      <input
-                        type="number"
-                        value={securitySettings.sessionTimeout}
-                        onChange={(e) => setSecuritySettings({...securitySettings, sessionTimeout: parseInt(e.target.value)})}
-                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">パスワード最小長</label>
-                      <input
-                        type="number"
-                        value={securitySettings.passwordMinLength}
-                        onChange={(e) => setSecuritySettings({...securitySettings, passwordMinLength: parseInt(e.target.value)})}
-                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">監査ログ保持期間（日）</label>
-                      <input
-                        type="number"
-                        value={securitySettings.auditLogRetentionDays}
-                        onChange={(e) => setSecuritySettings({...securitySettings, auditLogRetentionDays: parseInt(e.target.value)})}
-                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="two-factor"
-                        checked={securitySettings.requireTwoFactor}
-                        onChange={(e) => setSecuritySettings({...securitySettings, requireTwoFactor: e.target.checked})}
-                        className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                      />
-                      <label htmlFor="two-factor" className="ml-2 block text-sm text-gray-900">
-                        二要素認証を必須とする
-                      </label>
-                    </div>
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="ip-whitelist"
-                        checked={securitySettings.ipWhitelistEnabled}
-                        onChange={(e) => setSecuritySettings({...securitySettings, ipWhitelistEnabled: e.target.checked})}
-                        className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                      />
-                      <label htmlFor="ip-whitelist" className="ml-2 block text-sm text-gray-900">
-                        IPアドレス制限を有効にする
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Save Button (Fixed at bottom on mobile) */}
-        <div className="mt-8 sm:hidden">
-          <button
-            type="button"
-            onClick={handleSaveSettings}
-            disabled={saving}
-            className="w-full flex justify-center items-center rounded-md bg-primary-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {saving ? (
-              <>
-                <div className="inline-block w-4 h-4 mr-2 loading-spinner"></div>
-                保存中...
-              </>
-            ) : (
-              <>
-                <CheckCircleIcon className="h-4 w-4 mr-2" />
-                設定を保存
-              </>
-            )}
-          </button>
+            </div>
+          )}
         </div>
       </div>
-    </Layout>
+    </div>
   )
 }

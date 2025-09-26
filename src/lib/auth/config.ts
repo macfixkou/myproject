@@ -18,42 +18,81 @@ export const authOptions: NextAuthOptions = {
           return null
         }
 
-        const user = await prisma.user.findUnique({
-          where: {
-            email: credentials.email
+        // デモアカウント用のハードコード認証
+        const demoAccounts = {
+          'admin@example.com': {
+            id: 'admin-demo',
+            email: 'admin@example.com',
+            name: '管理者太郎',
+            role: 'ADMIN',
+            companyId: 'demo-company',
+            company: 'サンプル建設会社'
           },
-          include: {
-            company: true
+          'employee1@example.com': {
+            id: 'employee1-demo',
+            email: 'employee1@example.com',
+            name: '作業員花子',
+            role: 'EMPLOYEE',
+            companyId: 'demo-company',
+            company: 'サンプル建設会社'
+          },
+          'employee2@example.com': {
+            id: 'employee2-demo',
+            email: 'employee2@example.com',
+            name: '作業員次郎',
+            role: 'EMPLOYEE',
+            companyId: 'demo-company',
+            company: 'サンプル建設会社'
           }
-        })
+        }
 
-        if (!user || !user.password) {
+        // デモアカウントのチェック
+        if (demoAccounts[credentials.email] && credentials.password === 'password123') {
+          return demoAccounts[credentials.email]
+        }
+
+        // データベース認証（デモアカウントでない場合）
+        try {
+          const user = await prisma.user.findUnique({
+            where: {
+              email: credentials.email
+            },
+            include: {
+              company: true
+            }
+          })
+
+          if (!user || !user.password) {
+            return null
+          }
+
+          const isPasswordValid = await bcrypt.compare(credentials.password, user.password)
+
+          if (!isPasswordValid) {
+            return null
+          }
+
+          if (!user.active) {
+            throw new Error('アカウントが無効です')
+          }
+
+          // 最終ログイン時刻を更新
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { lastLoginAt: new Date() }
+          })
+
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            companyId: user.companyId,
+            company: user.company?.name || 'Unknown',
+          }
+        } catch (error) {
+          console.error('Database authentication failed:', error)
           return null
-        }
-
-        const isPasswordValid = await bcrypt.compare(credentials.password, user.password)
-
-        if (!isPasswordValid) {
-          return null
-        }
-
-        if (!user.active) {
-          throw new Error('アカウントが無効です')
-        }
-
-        // 最終ログイン時刻を更新
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { lastLoginAt: new Date() }
-        })
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          companyId: user.companyId,
-          company: user.company?.name || 'Unknown',
         }
       }
     })

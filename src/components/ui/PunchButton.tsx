@@ -149,8 +149,10 @@ export default function PunchButton({
                 <div className="status-indicator status-online"></div>
                 <span>GPS取得完了</span>
               </div>
-              <div className="text-xs text-gray-500">
-                精度: {currentGPS.accuracy?.toFixed(1)}m
+              <div className="text-xs text-gray-500 space-y-1">
+                <div>精度: {currentGPS.accuracy?.toFixed(1)}m</div>
+                <div>座標: {currentGPS.lat.toFixed(6)}, {currentGPS.lng.toFixed(6)}</div>
+                <div>取得時刻: {new Date().toLocaleTimeString('ja-JP')}</div>
               </div>
             </div>
           ) : null}

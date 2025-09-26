@@ -2,403 +2,295 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import Layout from '@/components/layout/Layout'
+import EmployeeLayout from '@/components/layout/EmployeeLayout'
 import { 
-  ChevronLeftIcon, 
+  CalendarIcon,
+  HomeIcon,
+  ChevronLeftIcon,
   ChevronRightIcon,
   ClockIcon,
-  SunIcon,
-  CloudIcon,
-  MapPinIcon,
-  DocumentTextIcon
+  MapPinIcon
 } from '@heroicons/react/24/outline'
 
-interface CalendarEvent {
+interface AttendanceRecord {
   id: string
   date: string
-  type: 'attendance' | 'report' | 'schedule'
-  title: string
-  description?: string
-  startTime?: string
-  endTime?: string
-  siteId?: string
-  siteName?: string
-  status?: 'completed' | 'pending' | 'cancelled'
-}
-
-interface WeatherData {
-  date: string
-  condition: string
-  temperature: string
-  icon: 'sun' | 'cloud' | 'rain'
+  startTime: string
+  endTime: string
+  workHours: number
+  siteName: string
+  status: 'present' | 'absent' | 'late' | 'holiday'
 }
 
 export default function CalendarPage() {
   const { data: session } = useSession()
+  const router = useRouter()
   const [currentDate, setCurrentDate] = useState(new Date())
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null)
-  const [events, setEvents] = useState<CalendarEvent[]>([])
-  const [weather, setWeather] = useState<WeatherData[]>([])
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Mock events data
-  const mockEvents: CalendarEvent[] = [
+  // Mock data for demonstration
+  const mockAttendanceRecords: AttendanceRecord[] = [
     {
       id: '1',
-      date: '2024-09-24',
-      type: 'attendance',
-      title: '出勤記録',
+      date: '2025-09-23',
       startTime: '08:00',
       endTime: '17:00',
-      siteId: 'site-1',
+      workHours: 8,
       siteName: '新宿オフィスビル建設現場',
-      status: 'completed'
+      status: 'present'
     },
     {
       id: '2',
-      date: '2024-09-24',
-      type: 'report',
-      title: '業務日報',
-      description: '基礎工事、鉄筋配筋作業',
-      siteId: 'site-1',
-      siteName: '新宿オフィスビル建設現場',
-      status: 'completed'
+      date: '2025-09-24',
+      startTime: '08:30',
+      endTime: '17:30',
+      workHours: 8,
+      siteName: '渋谷マンション改修工事',
+      status: 'present'
     },
     {
       id: '3',
-      date: '2024-09-25',
-      type: 'schedule',
-      title: '型枠設置作業',
-      startTime: '08:30',
-      endTime: '16:30',
-      siteId: 'site-1',
+      date: '2025-09-25',
+      startTime: '09:15',
+      endTime: '17:00',
+      workHours: 7.75,
       siteName: '新宿オフィスビル建設現場',
-      status: 'pending'
-    },
-    {
-      id: '4',
-      date: '2024-09-23',
-      type: 'attendance',
-      title: '出勤記録',
-      startTime: '08:30',
-      endTime: '16:30',
-      siteId: 'site-2',
-      siteName: '渋谷マンション改修工事',
-      status: 'completed'
+      status: 'late'
     }
   ]
 
-  // Mock weather data
-  const mockWeather: WeatherData[] = [
-    { date: '2024-09-24', condition: '晴れ', temperature: '22°C', icon: 'sun' },
-    { date: '2024-09-25', condition: '曇り', temperature: '19°C', icon: 'cloud' },
-    { date: '2024-09-26', condition: '晴れ', temperature: '25°C', icon: 'sun' },
-    { date: '2024-09-27', condition: '雨', temperature: '18°C', icon: 'rain' },
-  ]
-
   useEffect(() => {
-    // Simulate API calls
+    // Simulate API call
     setTimeout(() => {
-      setEvents(mockEvents)
-      setWeather(mockWeather)
+      setAttendanceRecords(mockAttendanceRecords)
       setLoading(false)
     }, 1000)
   }, [])
 
+  const handleGoHome = () => {
+    router.push('/home')
+  }
+
+  const handlePreviousMonth = () => {
+    const newDate = new Date(currentDate)
+    newDate.setMonth(newDate.getMonth() - 1)
+    setCurrentDate(newDate)
+  }
+
+  const handleNextMonth = () => {
+    const newDate = new Date(currentDate)
+    newDate.setMonth(newDate.getMonth() + 1)
+    setCurrentDate(newDate)
+  }
+
   const getDaysInMonth = (date: Date) => {
-    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()
-  }
+    const year = date.getFullYear()
+    const month = date.getMonth()
+    const firstDay = new Date(year, month, 1)
+    const lastDay = new Date(year, month + 1, 0)
+    const daysInMonth = lastDay.getDate()
+    const startDate = new Date(firstDay)
+    startDate.setDate(startDate.getDate() - firstDay.getDay()) // Start from Sunday
 
-  const getFirstDayOfMonth = (date: Date) => {
-    return new Date(date.getFullYear(), date.getMonth(), 1).getDay()
-  }
-
-  const formatDateKey = (date: Date) => {
-    return date.toISOString().split('T')[0]
-  }
-
-  const getEventsForDate = (date: Date) => {
-    const dateKey = formatDateKey(date)
-    return events.filter(event => event.date === dateKey)
-  }
-
-  const getWeatherForDate = (date: Date) => {
-    const dateKey = formatDateKey(date)
-    return weather.find(w => w.date === dateKey)
-  }
-
-  const goToPreviousMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))
-  }
-
-  const goToNextMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))
-  }
-
-  const goToToday = () => {
-    setCurrentDate(new Date())
-    setSelectedDate(new Date())
-  }
-
-  const handleDateClick = (day: number) => {
-    const clickedDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day)
-    setSelectedDate(clickedDate)
-  }
-
-  const renderCalendarDays = () => {
-    const daysInMonth = getDaysInMonth(currentDate)
-    const firstDayOfMonth = getFirstDayOfMonth(currentDate)
     const days = []
-    const today = new Date()
-
-    // Empty cells for days before the first day of the month
-    for (let i = 0; i < firstDayOfMonth; i++) {
-      days.push(<div key={`empty-${i}`} className="p-2"></div>)
+    for (let i = 0; i < 42; i++) { // 6 weeks * 7 days
+      const day = new Date(startDate)
+      day.setDate(startDate.getDate() + i)
+      days.push(day)
     }
-
-    // Days of the month
-    for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day)
-      const dateEvents = getEventsForDate(date)
-      const weatherData = getWeatherForDate(date)
-      const isToday = date.toDateString() === today.toDateString()
-      const isSelected = selectedDate && date.toDateString() === selectedDate.toDateString()
-
-      days.push(
-        <div
-          key={day}
-          onClick={() => handleDateClick(day)}
-          className={`p-2 min-h-[100px] border border-gray-200 cursor-pointer hover:bg-gray-50 ${
-            isToday ? 'bg-blue-50 border-blue-300' : ''
-          } ${isSelected ? 'bg-primary-50 border-primary-300' : ''}`}
-        >
-          <div className="flex items-center justify-between mb-1">
-            <span className={`text-sm font-medium ${
-              isToday ? 'text-blue-600' : isSelected ? 'text-primary-600' : 'text-gray-900'
-            }`}>
-              {day}
-            </span>
-            {weatherData && (
-              <div className="flex items-center">
-                {weatherData.icon === 'sun' && <SunIcon className="h-4 w-4 text-yellow-500" />}
-                {weatherData.icon === 'cloud' && <CloudIcon className="h-4 w-4 text-gray-500" />}
-                {weatherData.icon === 'rain' && <CloudIcon className="h-4 w-4 text-blue-500" />}
-                <span className="text-xs text-gray-600 ml-1">{weatherData.temperature}</span>
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-1">
-            {dateEvents.slice(0, 2).map((event) => (
-              <div
-                key={event.id}
-                className={`text-xs p-1 rounded truncate ${
-                  event.type === 'attendance' ? 'bg-green-100 text-green-800' :
-                  event.type === 'report' ? 'bg-blue-100 text-blue-800' :
-                  'bg-yellow-100 text-yellow-800'
-                }`}
-                title={event.title}
-              >
-                {event.type === 'attendance' && <ClockIcon className="h-3 w-3 inline mr-1" />}
-                {event.type === 'report' && <DocumentTextIcon className="h-3 w-3 inline mr-1" />}
-                {event.type === 'schedule' && <MapPinIcon className="h-3 w-3 inline mr-1" />}
-                {event.title}
-              </div>
-            ))}
-            {dateEvents.length > 2 && (
-              <div className="text-xs text-gray-500">
-                +{dateEvents.length - 2} more
-              </div>
-            )}
-          </div>
-        </div>
-      )
-    }
-
     return days
   }
 
+  const getAttendanceForDate = (date: Date) => {
+    const dateStr = date.toISOString().split('T')[0]
+    return attendanceRecords.find(record => record.date === dateStr)
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'present':
+        return 'bg-green-100 text-green-800'
+      case 'late':
+        return 'bg-yellow-100 text-yellow-800'
+      case 'absent':
+        return 'bg-red-100 text-red-800'
+      case 'holiday':
+        return 'bg-blue-100 text-blue-800'
+      default:
+        return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'present':
+        return '出勤'
+      case 'late':
+        return '遅刻'
+      case 'absent':
+        return '欠勤'
+      case 'holiday':
+        return '休日'
+      default:
+        return ''
+    }
+  }
+
+  // Choose layout based on user role
+  const LayoutComponent = session?.user.role === 'EMPLOYEE' ? EmployeeLayout : Layout
+
+  const days = getDaysInMonth(currentDate)
+  const currentMonth = currentDate.getMonth()
+
   if (loading) {
     return (
-      <Layout>
+      <LayoutComponent>
         <div className="flex items-center justify-center min-h-64">
           <div className="loading-spinner w-8 h-8"></div>
           <span className="ml-3 text-gray-600">読み込み中...</span>
         </div>
-      </Layout>
+      </LayoutComponent>
     )
   }
 
   return (
-    <Layout>
+    <LayoutComponent>
       <div className="px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="sm:flex sm:items-center sm:justify-between">
-          <div className="sm:flex-auto">
-            <h1 className="text-2xl font-semibold text-gray-900">カレンダー</h1>
-            <p className="mt-2 text-sm text-gray-700">
-              出勤記録、業務日報、作業予定を確認できます。
-            </p>
-          </div>
-          <div className="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
+        {/* Header with Home Button */}
+        <div className="mb-8">
+          <div className="flex items-center mb-4">
             <button
-              type="button"
-              onClick={goToToday}
-              className="block rounded-md bg-primary-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-primary-500"
+              onClick={handleGoHome}
+              className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
             >
-              今日
+              <HomeIcon className="h-4 w-4 mr-2" />
+              ホームに戻る
             </button>
+          </div>
+          
+          <div className="sm:flex sm:items-center sm:justify-between">
+            <div className="sm:flex-auto">
+              <h1 className="text-2xl font-semibold text-gray-900">勤怠カレンダー</h1>
+              <p className="mt-2 text-sm text-gray-700">
+                月別の出勤状況を確認できます。
+              </p>
+            </div>
           </div>
         </div>
 
-        <div className="mt-8 grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Calendar */}
-          <div className="lg:col-span-3">
-            <div className="bg-white shadow rounded-lg">
-              {/* Calendar Header */}
-              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-                <button
-                  type="button"
-                  onClick={goToPreviousMonth}
-                  className="p-2 rounded-md hover:bg-gray-100"
-                >
-                  <ChevronLeftIcon className="h-5 w-5 text-gray-600" />
-                </button>
-                
-                <h2 className="text-lg font-semibold text-gray-900">
-                  {currentDate.toLocaleDateString('ja-JP', { 
-                    year: 'numeric', 
-                    month: 'long' 
-                  })}
-                </h2>
-                
-                <button
-                  type="button"
-                  onClick={goToNextMonth}
-                  className="p-2 rounded-md hover:bg-gray-100"
-                >
-                  <ChevronRightIcon className="h-5 w-5 text-gray-600" />
-                </button>
-              </div>
-
-              {/* Day Headers */}
-              <div className="grid grid-cols-7 border-b border-gray-200">
-                {['日', '月', '火', '水', '木', '金', '土'].map((day, index) => (
-                  <div key={day} className={`py-3 px-2 text-center text-sm font-medium ${
-                    index === 0 ? 'text-red-600' : index === 6 ? 'text-blue-600' : 'text-gray-700'
-                  }`}>
-                    {day}
-                  </div>
-                ))}
-              </div>
-
-              {/* Calendar Grid */}
-              <div className="grid grid-cols-7">
-                {renderCalendarDays()}
-              </div>
+        {/* Calendar Header */}
+        <div className="bg-white shadow rounded-lg">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={handlePreviousMonth}
+                className="p-2 text-gray-400 hover:text-gray-600"
+              >
+                <ChevronLeftIcon className="h-5 w-5" />
+              </button>
+              
+              <h2 className="text-lg font-semibold text-gray-900">
+                {currentDate.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long' })}
+              </h2>
+              
+              <button
+                type="button"
+                onClick={handleNextMonth}
+                className="p-2 text-gray-400 hover:text-gray-600"
+              >
+                <ChevronRightIcon className="h-5 w-5" />
+              </button>
             </div>
           </div>
 
-          {/* Sidebar */}
-          <div className="lg:col-span-1 space-y-6">
-            {/* Selected Date Events */}
-            {selectedDate && (
-              <div className="bg-white shadow rounded-lg p-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">
-                  {selectedDate.toLocaleDateString('ja-JP', { 
-                    month: 'long', 
-                    day: 'numeric',
-                    weekday: 'short'
-                  })}
-                </h3>
-                
-                <div className="space-y-3">
-                  {getEventsForDate(selectedDate).length === 0 ? (
-                    <p className="text-sm text-gray-500">イベントはありません</p>
-                  ) : (
-                    getEventsForDate(selectedDate).map((event) => (
-                      <div key={event.id} className="border border-gray-200 rounded-lg p-3">
-                        <div className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium mb-2 ${
-                          event.type === 'attendance' ? 'bg-green-100 text-green-800' :
-                          event.type === 'report' ? 'bg-blue-100 text-blue-800' :
-                          'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {event.type === 'attendance' && <ClockIcon className="h-3 w-3 mr-1" />}
-                          {event.type === 'report' && <DocumentTextIcon className="h-3 w-3 mr-1" />}
-                          {event.type === 'schedule' && <MapPinIcon className="h-3 w-3 mr-1" />}
-                          {event.type === 'attendance' ? '出勤' : 
-                           event.type === 'report' ? '日報' : '予定'}
-                        </div>
-                        
-                        <p className="text-sm font-medium text-gray-900">{event.title}</p>
-                        
-                        {event.description && (
-                          <p className="text-sm text-gray-600 mt-1">{event.description}</p>
-                        )}
-                        
-                        {event.startTime && event.endTime && (
-                          <p className="text-sm text-gray-500 mt-1">
-                            {event.startTime} - {event.endTime}
-                          </p>
-                        )}
-                        
-                        {event.siteName && (
-                          <p className="text-sm text-gray-500 mt-1">
-                            <MapPinIcon className="h-3 w-3 inline mr-1" />
-                            {event.siteName}
-                          </p>
-                        )}
-                      </div>
-                    ))
-                  )}
+          {/* Calendar Grid */}
+          <div className="p-6">
+            {/* Day Headers */}
+            <div className="grid grid-cols-7 gap-1 mb-4">
+              {['日', '月', '火', '水', '木', '金', '土'].map((day) => (
+                <div key={day} className="p-2 text-center text-sm font-medium text-gray-500">
+                  {day}
                 </div>
-              </div>
-            )}
-
-            {/* Weather Forecast */}
-            <div className="bg-white shadow rounded-lg p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">天気予報</h3>
-              <div className="space-y-3">
-                {weather.slice(0, 4).map((w) => (
-                  <div key={w.date} className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      {w.icon === 'sun' && <SunIcon className="h-5 w-5 text-yellow-500 mr-2" />}
-                      {w.icon === 'cloud' && <CloudIcon className="h-5 w-5 text-gray-500 mr-2" />}
-                      {w.icon === 'rain' && <CloudIcon className="h-5 w-5 text-blue-500 mr-2" />}
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">
-                          {new Date(w.date).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' })}
-                        </p>
-                        <p className="text-sm text-gray-600">{w.condition}</p>
-                      </div>
-                    </div>
-                    <span className="text-sm font-medium text-gray-900">{w.temperature}</span>
-                  </div>
-                ))}
-              </div>
+              ))}
             </div>
 
-            {/* Legend */}
-            <div className="bg-white shadow rounded-lg p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">凡例</h3>
-              <div className="space-y-2">
-                <div className="flex items-center">
-                  <div className="w-4 h-4 bg-green-100 rounded mr-2"></div>
-                  <span className="text-sm text-gray-700">出勤記録</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-4 h-4 bg-blue-100 rounded mr-2"></div>
-                  <span className="text-sm text-gray-700">業務日報</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-4 h-4 bg-yellow-100 rounded mr-2"></div>
-                  <span className="text-sm text-gray-700">作業予定</span>
-                </div>
-              </div>
+            {/* Calendar Days */}
+            <div className="grid grid-cols-7 gap-1">
+              {days.map((day, index) => {
+                const isCurrentMonth = day.getMonth() === currentMonth
+                const isToday = day.toDateString() === new Date().toDateString()
+                const attendance = getAttendanceForDate(day)
+                
+                return (
+                  <div
+                    key={index}
+                    className={`
+                      min-h-20 p-2 border border-gray-200 rounded
+                      ${isCurrentMonth ? 'bg-white' : 'bg-gray-50'}
+                      ${isToday ? 'ring-2 ring-primary-500' : ''}
+                    `}
+                  >
+                    <div className={`text-sm font-medium mb-1 ${
+                      isCurrentMonth ? 'text-gray-900' : 'text-gray-400'
+                    }`}>
+                      {day.getDate()}
+                    </div>
+                    
+                    {attendance && isCurrentMonth && (
+                      <div className="space-y-1">
+                        <div className={`
+                          inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                          ${getStatusColor(attendance.status)}
+                        `}>
+                          {getStatusText(attendance.status)}
+                        </div>
+                        
+                        <div className="text-xs text-gray-600">
+                          <div className="flex items-center">
+                            <ClockIcon className="h-3 w-3 mr-1" />
+                            {attendance.startTime}-{attendance.endTime}
+                          </div>
+                          <div className="flex items-center mt-1">
+                            <MapPinIcon className="h-3 w-3 mr-1" />
+                            <span className="truncate">{attendance.siteName}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Legend */}
+        <div className="mt-6 bg-white shadow rounded-lg p-6">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">凡例</h3>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div className="flex items-center">
+              <div className="w-4 h-4 bg-green-100 rounded mr-2"></div>
+              <span className="text-sm text-gray-700">出勤</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-4 h-4 bg-yellow-100 rounded mr-2"></div>
+              <span className="text-sm text-gray-700">遅刻</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-4 h-4 bg-red-100 rounded mr-2"></div>
+              <span className="text-sm text-gray-700">欠勤</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-4 h-4 bg-blue-100 rounded mr-2"></div>
+              <span className="text-sm text-gray-700">休日</span>
             </div>
           </div>
         </div>
       </div>
-    </Layout>
+    </LayoutComponent>
   )
 }
