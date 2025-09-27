@@ -159,9 +159,9 @@ async function main() {
   await Promise.all(attendancePromises)
 
   console.log('シードデータの作成が完了しました！')
-  console.log('管理者ログイン: admin@construction.co.jp / admin123')
-  console.log('マネージャーログイン: manager@construction.co.jp / manager123')
-  console.log('従業員ログイン: employee1@construction.co.jp / employee123')
+  console.log('管理者ログイン: admin@example.com / password123')
+  console.log('従業員ログイン: employee1@example.com / password123')
+  console.log('従業員ログイン: employee2@example.com / password123')
 }
 
 main()
