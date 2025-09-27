@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import {
   HomeIcon,
   ClockIcon,
@@ -23,6 +23,7 @@ interface SidebarProps {
 
 export default function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname()
+  const router = useRouter()
 
   const navigation = [
     { name: 'ダッシュボード', href: '/home', icon: HomeIcon, roles: ['ADMIN', 'MANAGER', 'EMPLOYEE'] },
@@ -60,13 +61,16 @@ export default function Sidebar({ user }: SidebarProps) {
                 const isActive = pathname === item.href
                 return (
                   <li key={item.name}>
-                    <Link
-                      href={item.href}
+                    <button
+                      onClick={() => {
+                        console.log(`Navigation clicked: ${item.name} -> ${item.href}`)
+                        router.push(item.href)
+                      }}
                       className={`${
                         isActive
                           ? 'bg-gray-50 text-primary-600'
                           : 'text-gray-700 hover:text-primary-600 hover:bg-gray-50'
-                      } group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold`}
+                      } group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold w-full text-left`}
                     >
                       <item.icon
                         className={`${
@@ -75,7 +79,7 @@ export default function Sidebar({ user }: SidebarProps) {
                         aria-hidden="true"
                       />
                       {item.name}
-                    </Link>
+                    </button>
                   </li>
                 )
               })}
