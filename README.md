@@ -235,4 +235,4 @@ MIT License
 
 ## サポート
 
-質問や問題がある場合は、GitHubのIssuesを作成してください。
+質問や問題がある場合は、GitHubのIssuesを作成してください。# Trigger Vercel redeploy Sat Sep 27 15:10:16 UTC 2025
