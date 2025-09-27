@@ -28,8 +28,8 @@ const nextConfig = {
     domains: ['localhost'],
     unoptimized: true, // 画像最適化を無効にして軽量化
   },
-  // SWC最適化を無効
-  swcMinify: false,
+  // SWC最適化を有効（推奨）
+  swcMinify: true,
   
   // 環境変数の設定（本番環境で上書きされる）
   env: {

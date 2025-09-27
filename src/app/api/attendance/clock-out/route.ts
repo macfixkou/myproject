@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ジオフェンス判定
-    let outGeofence = null
+    let outGeofence: any = null
     if (gps && attendance.site?.latitude && attendance.site?.longitude && attendance.site?.geofenceRadius) {
       outGeofence = isWithinGeofence(
         { lat: gps.lat, lng: gps.lng },

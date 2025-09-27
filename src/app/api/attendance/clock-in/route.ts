@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     const { siteId, gps, notes } = clockInSchema.parse(body)
 
     // 現場情報を取得
-    let site = null
+    let site: any = null
     if (siteId) {
       site = await prisma.site.findFirst({
         where: {
