@@ -19,7 +19,7 @@ export const authOptions: NextAuthOptions = {
         }
 
         // デモアカウント用のハードコード認証
-        const demoAccounts = {
+        const demoAccounts: { [key: string]: any } = {
           'admin@example.com': {
             id: 'admin-demo',
             email: 'admin@example.com',
@@ -47,7 +47,8 @@ export const authOptions: NextAuthOptions = {
         }
 
         // デモアカウントのチェック
-        if (demoAccounts[credentials.email] && credentials.password === 'password123') {
+        const demoAccount = demoAccounts[credentials.email]
+        if (demoAccount && credentials.password === 'password123') {
           // デモ会社が存在するか確認し、なければ作成
           let demoCompany = await prisma.company.findUnique({
             where: { id: 'demo-company' }
@@ -66,7 +67,7 @@ export const authOptions: NextAuthOptions = {
             })
           }
           
-          return demoAccounts[credentials.email]
+          return demoAccount
         }
 
         // データベース認証（デモアカウントでない場合）

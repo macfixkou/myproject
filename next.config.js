@@ -37,9 +37,9 @@ const nextConfig = {
     NEXTAUTH_URL: process.env.NEXTAUTH_URL || 'http://localhost:3000',
   },
   
-  // Cloudflare Pages互換性
+  // 実験的機能（必要に応じて追加）
   experimental: {
-    runtime: 'nodejs',
+    // serverComponentsExternalPackages: ['prisma'],
   },
 }
 
