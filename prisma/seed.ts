@@ -108,7 +108,7 @@ async function main() {
 
   // サンプル勤怠データを作成（過去30日分）
   const today = new Date()
-  const attendancePromises = []
+  const attendancePromises: any[] = []
 
   for (let i = 0; i < 30; i++) {
     const date = new Date(today)
@@ -134,8 +134,7 @@ async function main() {
         const nightMinutes = clockOutAt.getHours() >= 22 ? Math.min(120, overtimeMinutes) : 0 // 深夜労働
         const holidayMinutes = 0 // 平日なので休日労働なし
         
-        attendancePromises.push(
-          prisma.attendance.create({
+        const attendancePromise = prisma.attendance.create({
             data: {
               userId: employee.id,
               siteId: sites[Math.floor(Math.random() * 2)].id, // アクティブな現場のみ
@@ -151,7 +150,8 @@ async function main() {
               notes: `${date.toLocaleDateString()}の勤務`,
             },
           })
-        )
+        
+        attendancePromises.push(attendancePromise)
       }
     }
   }

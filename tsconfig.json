@@ -33,6 +33,8 @@
     "node_modules",
     "**/*-original.*",
     "**/*-simple.*", 
-    "**/*-backup.*"
+    "**/*-backup.*",
+    "prisma/seed.ts",
+    "scripts/**/*"
   ]
 }
