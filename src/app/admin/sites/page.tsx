@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { redirect, useRouter } from 'next/navigation'
+import Layout from '@/components/layout/Layout'
 import {
   MapPinIcon,
   PlusIcon,
@@ -15,6 +16,7 @@ import {
   HomeIcon,
   XMarkIcon,
   CheckIcon,
+  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline'
 
 interface Site {
@@ -299,10 +301,12 @@ export default function AdminSitesPage() {
 
   if (status === 'loading' || loading) {
     return (
-      <div className="flex items-center justify-center py-8">
-        <div className="loading-spinner w-8 h-8"></div>
-        <span className="ml-3 text-gray-600">現場データを読み込み中...</span>
-      </div>
+      <Layout>
+        <div className="flex items-center justify-center py-8">
+          <div className="loading-spinner w-8 h-8"></div>
+          <span className="ml-3 text-gray-600">現場データを読み込み中...</span>
+        </div>
+      </Layout>
     )
   }
 
@@ -311,6 +315,7 @@ export default function AdminSitesPage() {
   }
 
   return (
+    <Layout>
     <div className="space-y-8">
       {/* ホームボタン */}
       <div className="mb-4">
@@ -808,5 +813,6 @@ export default function AdminSitesPage() {
         </div>
       )}
     </div>
+    </Layout>
   )
 }

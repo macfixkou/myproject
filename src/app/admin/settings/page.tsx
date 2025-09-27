@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { redirect, useRouter } from 'next/navigation'
+import Layout from '@/components/layout/Layout'
 import {
   Cog6ToothIcon,
   BuildingOfficeIcon,
@@ -13,6 +14,7 @@ import {
   DocumentTextIcon,
   HomeIcon,
   CheckIcon,
+  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline'
 
 interface CompanySettings {
@@ -203,10 +205,12 @@ export default function AdminSettingsPage() {
 
   if (status === 'loading') {
     return (
-      <div className="flex items-center justify-center py-8">
-        <div className="loading-spinner w-8 h-8"></div>
-        <span className="ml-3 text-gray-600">設定を読み込み中...</span>
-      </div>
+      <Layout>
+        <div className="flex items-center justify-center py-8">
+          <div className="loading-spinner w-8 h-8"></div>
+          <span className="ml-3 text-gray-600">設定を読み込み中...</span>
+        </div>
+      </Layout>
     )
   }
 
@@ -215,6 +219,7 @@ export default function AdminSettingsPage() {
   }
 
   return (
+    <Layout>
     <div className="space-y-8">
       {/* ホームボタン */}
       <div className="mb-4">
@@ -933,5 +938,6 @@ export default function AdminSettingsPage() {
         </div>
       </div>
     </div>
+    </Layout>
   )
 }

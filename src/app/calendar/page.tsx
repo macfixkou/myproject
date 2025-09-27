@@ -11,8 +11,14 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   ClockIcon,
-  MapPinIcon
+  MapPinIcon,
+  SunIcon,
+  CloudIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline'
+import { 
+  CloudRainIcon,
+} from '@heroicons/react/24/solid'
 
 interface AttendanceRecord {
   id: string
@@ -24,12 +30,44 @@ interface AttendanceRecord {
   status: 'present' | 'absent' | 'late' | 'holiday'
 }
 
+interface WeatherData {
+  date: string
+  temperature: {
+    high: number
+    low: number
+  }
+  condition: 'sunny' | 'cloudy' | 'rainy' | 'snowy'
+  humidity: number
+  windSpeed: number
+}
+
 export default function CalendarPage() {
   const { data: session } = useSession()
   const router = useRouter()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([])
+  const [weatherData, setWeatherData] = useState<WeatherData[]>([])
   const [loading, setLoading] = useState(true)
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null)
+  const [showDetailModal, setShowDetailModal] = useState(false)
+
+  // Weather icon component
+  const WeatherIcon = ({ condition, size = 'sm' }: { condition: string, size?: 'sm' | 'md' }) => {
+    const iconClass = size === 'sm' ? 'h-4 w-4' : 'h-6 w-6'
+    
+    switch (condition) {
+      case 'sunny':
+        return <SunIcon className={`${iconClass} text-yellow-500`} />
+      case 'cloudy':
+        return <CloudIcon className={`${iconClass} text-gray-500`} />
+      case 'rainy':
+        return <CloudRainIcon className={`${iconClass} text-blue-500`} />
+      case 'snowy':
+        return <CloudIcon className={`${iconClass} text-blue-200`} />
+      default:
+        return <SunIcon className={`${iconClass} text-yellow-500`} />
+    }
+  }
 
   // Mock data for demonstration
   const mockAttendanceRecords: AttendanceRecord[] = [
@@ -62,13 +100,55 @@ export default function CalendarPage() {
     }
   ]
 
+  // Generate mock weather data for the month
+  const generateWeatherData = (year: number, month: number): WeatherData[] => {
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
+    const weather: WeatherData[] = []
+    const conditions: WeatherData['condition'][] = ['sunny', 'cloudy', 'rainy', 'snowy']
+    
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(year, month, day)
+      weather.push({
+        date: date.toISOString().split('T')[0],
+        temperature: {
+          high: Math.floor(Math.random() * 15) + 15, // 15-30°C
+          low: Math.floor(Math.random() * 10) + 5,   // 5-15°C
+        },
+        condition: conditions[Math.floor(Math.random() * conditions.length)],
+        humidity: Math.floor(Math.random() * 40) + 40, // 40-80%
+        windSpeed: Math.floor(Math.random() * 10) + 1  // 1-10 m/s
+      })
+    }
+    return weather
+  }
+
   useEffect(() => {
     // Simulate API call
     setTimeout(() => {
       setAttendanceRecords(mockAttendanceRecords)
+      const weather = generateWeatherData(currentDate.getFullYear(), currentDate.getMonth())
+      setWeatherData(weather)
       setLoading(false)
     }, 1000)
-  }, [])
+  }, [currentDate])
+
+  // Handle date click
+  const handleDateClick = (date: Date) => {
+    setSelectedDate(date)
+    setShowDetailModal(true)
+  }
+
+  // Get weather for specific date
+  const getWeatherForDate = (date: Date): WeatherData | undefined => {
+    const dateStr = date.toISOString().split('T')[0]
+    return weatherData.find(w => w.date === dateStr)
+  }
+
+  // Get attendance for specific date
+  const getAttendanceForDate = (date: Date): AttendanceRecord | undefined => {
+    const dateStr = date.toISOString().split('T')[0]
+    return attendanceRecords.find(a => a.date === dateStr)
+  }
 
   const handleGoHome = () => {
     router.push('/home')
@@ -224,26 +304,39 @@ export default function CalendarPage() {
                 const isCurrentMonth = day.getMonth() === currentMonth
                 const isToday = day.toDateString() === new Date().toDateString()
                 const attendance = getAttendanceForDate(day)
+                const weather = getWeatherForDate(day)
                 
                 return (
                   <div
                     key={index}
+                    onClick={() => isCurrentMonth && handleDateClick(day)}
                     className={`
-                      min-h-20 p-2 border border-gray-200 rounded
-                      ${isCurrentMonth ? 'bg-white' : 'bg-gray-50'}
+                      min-h-24 p-2 border border-gray-200 rounded cursor-pointer transition-all hover:shadow-md
+                      ${isCurrentMonth ? 'bg-white hover:bg-blue-50' : 'bg-gray-50'}
                       ${isToday ? 'ring-2 ring-primary-500' : ''}
                     `}
                   >
-                    <div className={`text-sm font-medium mb-1 ${
-                      isCurrentMonth ? 'text-gray-900' : 'text-gray-400'
-                    }`}>
-                      {day.getDate()}
+                    {/* Date and Weather */}
+                    <div className="flex items-center justify-between mb-1">
+                      <div className={`text-sm font-medium ${
+                        isCurrentMonth ? 'text-gray-900' : 'text-gray-400'
+                      }`}>
+                        {day.getDate()}
+                      </div>
+                      {weather && isCurrentMonth && (
+                        <div className="flex items-center space-x-1">
+                          <WeatherIcon condition={weather.condition} size="sm" />
+                          <span className="text-xs text-gray-500">
+                            {weather.temperature.high}°
+                          </span>
+                        </div>
+                      )}
                     </div>
                     
                     {attendance && isCurrentMonth && (
                       <div className="space-y-1">
                         <div className={`
-                          inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                          inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium
                           ${getStatusColor(attendance.status)}
                         `}>
                           {getStatusText(attendance.status)}
@@ -290,6 +383,131 @@ export default function CalendarPage() {
             </div>
           </div>
         </div>
+
+        {/* Detail Modal */}
+        {showDetailModal && selectedDate && (
+          <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">
+                  {selectedDate.toLocaleDateString('ja-JP', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    weekday: 'long'
+                  })}
+                </h3>
+                <button
+                  onClick={() => setShowDetailModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <XMarkIcon className="h-6 w-6" />
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                {/* Weather Information */}
+                {(() => {
+                  const weather = getWeatherForDate(selectedDate)
+                  return weather ? (
+                    <div className="bg-blue-50 rounded-lg p-4">
+                      <h4 className="font-medium text-blue-900 mb-2 flex items-center">
+                        <WeatherIcon condition={weather.condition} size="md" />
+                        <span className="ml-2">天気情報</span>
+                      </h4>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-blue-700">気温:</span>
+                          <span className="ml-1 font-medium">
+                            {weather.temperature.high}° / {weather.temperature.low}°
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-blue-700">湿度:</span>
+                          <span className="ml-1 font-medium">{weather.humidity}%</span>
+                        </div>
+                        <div>
+                          <span className="text-blue-700">風速:</span>
+                          <span className="ml-1 font-medium">{weather.windSpeed} m/s</span>
+                        </div>
+                        <div>
+                          <span className="text-blue-700">天候:</span>
+                          <span className="ml-1 font-medium">
+                            {weather.condition === 'sunny' && '晴れ'}
+                            {weather.condition === 'cloudy' && '曇り'}
+                            {weather.condition === 'rainy' && '雨'}
+                            {weather.condition === 'snowy' && '雪'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null
+                })()}
+
+                {/* Attendance Information */}
+                {(() => {
+                  const attendance = getAttendanceForDate(selectedDate)
+                  return attendance ? (
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h4 className="font-medium text-gray-900 mb-2 flex items-center">
+                        <ClockIcon className="h-5 w-5 mr-2" />
+                        勤怠情報
+                      </h4>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">出勤時刻:</span>
+                          <span className="font-medium">{attendance.startTime}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">退勤時刻:</span>
+                          <span className="font-medium">{attendance.endTime}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">労働時間:</span>
+                          <span className="font-medium">{attendance.workHours}時間</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">現場:</span>
+                          <span className="font-medium">{attendance.siteName}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">ステータス:</span>
+                          <span className={`font-medium ${
+                            attendance.status === 'present' ? 'text-green-600' :
+                            attendance.status === 'late' ? 'text-yellow-600' :
+                            attendance.status === 'absent' ? 'text-red-600' :
+                            'text-blue-600'
+                          }`}>
+                            {getStatusText(attendance.status)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h4 className="font-medium text-gray-900 mb-2 flex items-center">
+                        <ClockIcon className="h-5 w-5 mr-2" />
+                        勤怠情報
+                      </h4>
+                      <p className="text-sm text-gray-500">
+                        この日の勤怠データはありません
+                      </p>
+                    </div>
+                  )
+                })()}
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={() => setShowDetailModal(false)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200"
+                >
+                  閉じる
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </LayoutComponent>
   )
