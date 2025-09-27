@@ -1,7 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Cloudflare Pages対応設定
-  output: 'standalone',
+  // Vercel対応設定  
   trailingSlash: true,
   
   // チャンク最適化を無効にして安定性向上
@@ -32,10 +31,10 @@ const nextConfig = {
   // SWC最適化を無効
   swcMinify: false,
   
-  // 環境変数の設定
+  // 環境変数の設定（本番環境で上書きされる）
   env: {
-    NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
-    NEXTAUTH_URL: process.env.NEXTAUTH_URL,
+    NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET || 'fallback-secret-for-build',
+    NEXTAUTH_URL: process.env.NEXTAUTH_URL || 'http://localhost:3000',
   },
   
   // Cloudflare Pages互換性
