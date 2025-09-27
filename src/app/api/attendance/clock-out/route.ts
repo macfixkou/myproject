@@ -105,18 +105,18 @@ export async function POST(request: NextRequest) {
         entity: 'attendance',
         entityId: attendance.id,
         action: 'UPDATE',
-        beforeJson: {
+        beforeText: JSON.stringify({
           status: 'OPEN',
           clockOutAt: null
-        },
-        afterJson: {
+        }),
+        afterText: JSON.stringify({
           status: 'CLOSED',
           clockOut: now.toISOString(),
           worked: workTimeCalc.workedMinutes,
           overtime: workTimeCalc.overtimeMinutes,
           gps: gps,
           geofence: outGeofence
-        },
+        }),
         ipAddress: request.headers.get('x-forwarded-for') || 
                    request.headers.get('x-real-ip') || 
                    'unknown'
@@ -135,10 +135,10 @@ export async function POST(request: NextRequest) {
         level: 'WARNING',
         title: 'ジオフェンス外での退勤',
         message: `${user.name}さんが現場の指定範囲外で退勤しました`,
-        payloadJson: {
+        payloadText: JSON.stringify({
           attendanceId: attendance.id,
           siteName: attendance.site?.name
-        }
+        })
       })
     }
 
@@ -151,11 +151,11 @@ export async function POST(request: NextRequest) {
         level: 'INFO',
         title: '8時間労働到達',
         message: `${user.name}さんが8時間の労働時間に到達しました`,
-        payloadJson: {
+        payloadText: JSON.stringify({
           attendanceId: attendance.id,
           workedMinutes: workTimeCalc.workedMinutes,
           overtimeMinutes: workTimeCalc.overtimeMinutes
-        }
+        })
       })
     }
 
@@ -168,10 +168,10 @@ export async function POST(request: NextRequest) {
         level: 'WARNING',
         title: '長時間労働警告',
         message: `${user.name}さんが2時間以上の残業をしています`,
-        payloadJson: {
+        payloadText: JSON.stringify({
           attendanceId: attendance.id,
           overtimeMinutes: workTimeCalc.overtimeMinutes
-        }
+        })
       })
     }
 
