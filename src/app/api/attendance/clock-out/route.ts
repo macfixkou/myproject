@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
     })
 
     // アラートチェック
-    const alerts = []
+    const alerts: any[] = []
 
     // ジオフェンス外退勤
     if (company.gpsRequired && gps && outGeofence === false) {
