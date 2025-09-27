@@ -1,0 +1,21 @@
+name = "construction-timesheet-app"
+compatibility_date = "2023-12-01"
+compatibility_flags = ["nodejs_compat"]
+
+[build]
+command = "npm run build"
+cwd = ""
+
+# Pages configuration
+pages_build_output_dir = ".next"
+
+# Environment variables for production
+[env.production.vars]
+NODE_ENV = "production"
+NEXT_TELEMETRY_DISABLED = "1"
+
+# Database configuration (if using D1)
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "construction-db"
+# database_id = "your-database-id-here"

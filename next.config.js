@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Cloudflare Pages対応設定
+  output: 'standalone',
+  trailingSlash: true,
+  
   // チャンク最適化を無効にして安定性向上
   webpack: (config, { dev, isServer }) => {
     if (dev && !isServer) {
@@ -27,9 +31,16 @@ const nextConfig = {
   },
   // SWC最適化を無効
   swcMinify: false,
+  
+  // 環境変数の設定
   env: {
     NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
     NEXTAUTH_URL: process.env.NEXTAUTH_URL,
+  },
+  
+  // Cloudflare Pages互換性
+  experimental: {
+    runtime: 'nodejs',
   },
 }
 
