@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ジオフェンス判定
-    let inGeofence = null
+    let inGeofence: any = null
     if (gps && site?.latitude && site?.longitude && site?.geofenceRadius) {
       inGeofence = isWithinGeofence(
         { lat: gps.lat, lng: gps.lng },
