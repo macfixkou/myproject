@@ -9,175 +9,175 @@ async function main() {
   // サンプル会社を作成
   const company = await prisma.company.create({
     data: {
-      name: 'サンプル建設会社',
+      name: '建設株式会社',
       timezone: 'Asia/Tokyo',
       payrollRounding: 'ROUND',
       standardWorkHours: 480, // 8時間 = 480分
-      breakPolicyJson: {
-        slots: [
-          { start: '10:00', end: '10:15', name: '午前休憩' },
-          { start: '12:00', end: '13:00', name: '昼休憩' },
-          { start: '15:00', end: '15:15', name: '午後休憩' }
-        ]
-      },
-      overtimeSettings: {
-        dailyThreshold: 480, // 8時間
-        weeklyThreshold: 2400, // 40時間
-        monthlyThreshold: 2700, // 45時間
-        yearlyThreshold: 21600 // 360時間
-      },
-      gpsRequired: true
-    }
+      gpsRequired: true,
+    },
   })
 
   // 管理者ユーザーを作成
-  const hashedPassword = await bcrypt.hash('password123', 12)
-  
   const adminUser = await prisma.user.create({
     data: {
-      companyId: company.id,
+      email: 'admin@construction.co.jp',
+      password: await bcrypt.hash('admin123', 12),
+      name: '管理者',
       role: 'ADMIN',
-      name: '管理者太郎',
-      email: 'admin@example.com',
-      password: hashedPassword,
-      phone: '090-1234-5678',
-      active: true
-    }
-  })
-
-  // サンプル従業員を作成
-  const employee1 = await prisma.user.create({
-    data: {
       companyId: company.id,
-      role: 'EMPLOYEE',
-      name: '作業員花子',
-      email: 'employee1@example.com',
-      password: hashedPassword,
-      phone: '090-2345-6789',
-      hourlyWage: 1500,
       employmentType: '正社員',
-      active: true
-    }
+      hourlyWage: 2000,
+      phone: '03-1234-5678',
+    },
   })
 
-  const employee2 = await prisma.user.create({
+  // マネージャーユーザーを作成
+  const managerUser = await prisma.user.create({
     data: {
+      email: 'manager@construction.co.jp',
+      password: await bcrypt.hash('manager123', 12),
+      name: '現場監督太郎',
+      role: 'MANAGER',
       companyId: company.id,
-      role: 'EMPLOYEE',
-      name: '作業員次郎',
-      email: 'employee2@example.com',
-      password: hashedPassword,
-      phone: '090-3456-7890',
-      hourlyWage: 1400,
-      employmentType: 'パート',
-      active: true
-    }
+      employmentType: '正社員',
+      hourlyWage: 1800,
+      phone: '03-1234-5679',
+    },
   })
+
+  // 従業員ユーザーを作成
+  const employees = await Promise.all([
+    prisma.user.create({
+      data: {
+        email: 'employee1@construction.co.jp',
+        password: await bcrypt.hash('employee123', 12),
+        name: '作業員花子',
+        role: 'EMPLOYEE',
+        companyId: company.id,
+        employmentType: '正社員',
+        hourlyWage: 1500,
+        phone: '03-1234-5680',
+      },
+    }),
+    prisma.user.create({
+      data: {
+        email: 'employee2@construction.co.jp',
+        password: await bcrypt.hash('employee123', 12),
+        name: '作業員次郎',
+        role: 'EMPLOYEE',
+        companyId: company.id,
+        employmentType: 'パート',
+        hourlyWage: 1400,
+        phone: '03-1234-5681',
+      },
+    }),
+    prisma.user.create({
+      data: {
+        email: 'employee3@construction.co.jp',
+        password: await bcrypt.hash('employee123', 12),
+        name: '職人三郎',
+        role: 'EMPLOYEE',
+        companyId: company.id,
+        employmentType: '正社員',
+        hourlyWage: 1800,
+        phone: '03-1234-5682',
+      },
+    }),
+  ])
 
   // サンプル現場を作成
-  const site1 = await prisma.site.create({
-    data: {
-      companyId: company.id,
-      name: '東京駅前ビル建設現場',
-      address: '東京都千代田区丸の内1-1-1',
-      latitude: 35.681236,
-      longitude: 139.767125,
-      geofenceRadius: 100, // 100メートル
-      client: '株式会社サンプル不動産',
-      startDate: new Date('2024-01-01'),
-      endDate: new Date('2024-12-31'),
-      active: true
-    }
-  })
-
-  const site2 = await prisma.site.create({
-    data: {
-      companyId: company.id,
-      name: '渋谷商業施設改修現場',
-      address: '東京都渋谷区渋谷2-2-2',
-      latitude: 35.658034,
-      longitude: 139.701636,
-      geofenceRadius: 80,
-      client: '渋谷開発株式会社',
-      startDate: new Date('2024-02-01'),
-      endDate: new Date('2024-08-31'),
-      active: true
-    }
-  })
-
-  // 休憩ポリシーを作成
-  await prisma.breakPolicy.create({
-    data: {
-      companyId: company.id,
-      name: '標準休憩ポリシー',
-      slotsJson: {
-        slots: [
-          { start: '10:00', end: '10:15', auto: true },
-          { start: '12:00', end: '13:00', auto: true },
-          { start: '15:00', end: '15:15', auto: true }
-        ]
+  const sites = await Promise.all([
+    prisma.site.create({
+      data: {
+        name: '新宿オフィスビル建設',
+        address: '東京都新宿区2-2-2',
+        client: '新宿開発株式会社',
+        companyId: company.id,
+        active: true,
+        startDate: new Date('2024-01-01'),
+        endDate: new Date('2024-12-31'),
       },
-      active: true
-    }
-  })
+    }),
+    prisma.site.create({
+      data: {
+        name: '渋谷マンション建設',
+        address: '東京都渋谷区3-3-3',
+        client: '渋谷住宅株式会社',
+        companyId: company.id,
+        active: true,
+        startDate: new Date('2024-02-01'),
+        endDate: new Date('2025-01-31'),
+      },
+    }),
+    prisma.site.create({
+      data: {
+        name: '池袋商業施設建設',
+        address: '東京都豊島区4-4-4',
+        client: '池袋商業開発株式会社',
+        companyId: company.id,
+        active: false,
+        startDate: new Date('2024-06-01'),
+        endDate: new Date('2025-05-31'),
+      },
+    }),
+  ])
 
-  // 給与項目を作成
-  await prisma.payItem.create({
-    data: {
-      companyId: company.id,
-      name: '基本給',
-      type: 'ALLOWANCE',
-      unit: '時間',
-      amount: 0, // 時給ベースなので0
-      taxable: true,
-      active: true
-    }
-  })
+  // サンプル勤怠データを作成（過去30日分）
+  const today = new Date()
+  const attendancePromises = []
 
-  await prisma.payItem.create({
-    data: {
-      companyId: company.id,
-      name: '残業手当',
-      type: 'ALLOWANCE',
-      unit: '時間',
-      amount: 0, // 計算式で算出
-      taxable: true,
-      active: true
-    }
-  })
+  for (let i = 0; i < 30; i++) {
+    const date = new Date(today)
+    date.setDate(date.getDate() - i)
+    
+    // 土日は休み
+    if (date.getDay() === 0 || date.getDay() === 6) continue
 
-  await prisma.payItem.create({
-    data: {
-      companyId: company.id,
-      name: '交通費',
-      type: 'ALLOWANCE',
-      unit: '日',
-      amount: 500,
-      taxable: false,
-      active: true
+    for (const employee of employees) {
+      // 90%の確率で出勤
+      if (Math.random() < 0.9) {
+        const checkInHour = 8 + Math.floor(Math.random() * 2) // 8-9時に出勤
+        const checkInMinute = Math.floor(Math.random() * 60)
+        const workMinutes = 480 + Math.floor(Math.random() * 180) // 8-11時間労働（分）
+        
+        const clockInAt = new Date(date)
+        clockInAt.setHours(checkInHour, checkInMinute, 0, 0)
+        
+        const clockOutAt = new Date(clockInAt)
+        clockOutAt.setMinutes(clockOutAt.getMinutes() + workMinutes)
+        
+        const overtimeMinutes = Math.max(0, workMinutes - 480) // 8時間超過分
+        const nightMinutes = clockOutAt.getHours() >= 22 ? Math.min(120, overtimeMinutes) : 0 // 深夜労働
+        const holidayMinutes = 0 // 平日なので休日労働なし
+        
+        attendancePromises.push(
+          prisma.attendance.create({
+            data: {
+              userId: employee.id,
+              siteId: sites[Math.floor(Math.random() * 2)].id, // アクティブな現場のみ
+              clockInAt: clockInAt,
+              clockOutAt: clockOutAt,
+              workedMinutes: workMinutes,
+              overtimeMinutes: overtimeMinutes,
+              nightMinutes: nightMinutes,
+              holidayMinutes: holidayMinutes,
+              status: 'CLOSED',
+              inGeofenceIn: true,
+              outGeofenceIn: true,
+              notes: `${date.toLocaleDateString()}の勤務`,
+            },
+          })
+        )
+      }
     }
-  })
+  }
 
-  // 給与計算ルールを作成
-  await prisma.payRule.create({
-    data: {
-      companyId: company.id,
-      name: '基本給与計算',
-      formulaExpr: JSON.stringify({
-        base: 'hourly_wage * worked_hours',
-        overtime: 'hourly_wage * overtime_hours * 1.25',
-        night: 'hourly_wage * night_hours * 0.25',
-        holiday: 'hourly_wage * holiday_hours * 0.35'
-      }),
-      roundingRule: 'ROUND',
-      active: true
-    }
-  })
+  await Promise.all(attendancePromises)
 
-  console.log('シードデータの作成が完了しました')
-  console.log('管理者アカウント: admin@example.com / password123')
-  console.log('従業員アカウント1: employee1@example.com / password123')
-  console.log('従業員アカウント2: employee2@example.com / password123')
+  console.log('シードデータの作成が完了しました！')
+  console.log('管理者ログイン: admin@construction.co.jp / admin123')
+  console.log('マネージャーログイン: manager@construction.co.jp / manager123')
+  console.log('従業員ログイン: employee1@construction.co.jp / employee123')
 }
 
 main()

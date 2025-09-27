@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
         email: true,
         hourlyWage: true,
         employmentType: true,
-        department: true
+        phone: true
       }
     })
 
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
         const attendances = await prisma.attendance.findMany({
           where: {
             userId: employee.id,
-            date: {
+            clockInAt: {
               gte: startDate,
               lte: endDate
             }
@@ -59,55 +59,36 @@ export async function GET(request: NextRequest) {
         })
 
         // Calculate attendance summary
-        const workDays = attendances.filter(a => a.status === 'PRESENT').length
-        const absentDays = attendances.filter(a => a.status === 'ABSENT').length
-        const lateDays = attendances.filter(a => a.isLate).length
+        const workDays = attendances.filter(a => a.status === 'CLOSED').length
+        const absentDays = 0 // 欠勤レコードは作らないため0
+        const lateDays = attendances.filter(a => {
+          const clockIn = new Date(a.clockInAt)
+          return clockIn.getHours() > 9 || (clockIn.getHours() === 9 && clockIn.getMinutes() > 0)
+        }).length
         
-        // Calculate working hours
+        // Calculate working hours from stored minutes
         let regularHours = 0
         let overtimeHours = 0
         let nightHours = 0
         let holidayHours = 0
 
         attendances.forEach(attendance => {
-          if (attendance.status === 'PRESENT' && attendance.checkInTime && attendance.checkOutTime) {
-            const checkIn = new Date(attendance.checkInTime)
-            const checkOut = new Date(attendance.checkOutTime)
-            const totalMinutes = Math.floor((checkOut.getTime() - checkIn.getTime()) / (1000 * 60))
-            const dailyHours = Math.max(0, (totalMinutes - (attendance.breakMinutes || 60)) / 60)
+          if (attendance.status === 'CLOSED') {
+            // Convert minutes to hours
+            const totalHours = attendance.workedMinutes / 60
+            const overtimeHoursDaily = attendance.overtimeMinutes / 60
+            const nightHoursDaily = attendance.nightMinutes / 60
+            const holidayHoursDaily = attendance.holidayMinutes / 60
             
-            // Standard work day is 8 hours
-            const standardHours = 8
-            const regularDaily = Math.min(dailyHours, standardHours)
-            const overtimeDaily = Math.max(0, dailyHours - standardHours)
-            
-            regularHours += regularDaily
-            overtimeHours += overtimeDaily
-
-            // Check if it's a weekend (simplified night/holiday calculation)
-            const dayOfWeek = attendance.date.getDay()
-            if (dayOfWeek === 0 || dayOfWeek === 6) {
-              holidayHours += dailyHours
-            }
-
-            // Night hours (simplified: assume work after 22:00)
-            if (checkOut.getHours() >= 22 || checkIn.getHours() <= 5) {
-              nightHours += Math.min(2, dailyHours) // Max 2 hours night shift per day
-            }
+            regularHours += Math.max(0, totalHours - overtimeHoursDaily)
+            overtimeHours += overtimeHoursDaily
+            nightHours += nightHoursDaily
+            holidayHours += holidayHoursDaily
           }
         })
 
         const totalHours = regularHours + overtimeHours
-        const overtimeDays = attendances.filter(a => {
-          if (a.status === 'PRESENT' && a.checkInTime && a.checkOutTime) {
-            const checkIn = new Date(a.checkInTime)
-            const checkOut = new Date(a.checkOutTime)
-            const totalMinutes = Math.floor((checkOut.getTime() - checkIn.getTime()) / (1000 * 60))
-            const dailyHours = Math.max(0, (totalMinutes - (a.breakMinutes || 60)) / 60)
-            return dailyHours > 8
-          }
-          return false
-        }).length
+        const overtimeDays = attendances.filter(a => a.overtimeMinutes > 0).length
 
         // Calculate salary amounts
         const hourlyWage = employee.hourlyWage || 1500
@@ -147,7 +128,7 @@ export async function GET(request: NextRequest) {
             email: employee.email,
             hourlyWage,
             employmentType: employee.employmentType || 'パート',
-            department: employee.department || '建設部'
+            department: '建設部'
           },
           period: {
             year,
