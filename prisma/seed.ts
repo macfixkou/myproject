@@ -6,10 +6,13 @@ const prisma = new PrismaClient()
 async function main() {
   console.log('データベースのシードを開始します...')
 
-  // サンプル会社を作成
-  const company = await prisma.company.create({
-    data: {
-      name: '建設株式会社',
+  // デモ会社を作成（デモアカウント用）
+  const demoCompany = await prisma.company.upsert({
+    where: { id: 'demo-company' },
+    update: {},
+    create: {
+      id: 'demo-company',
+      name: 'サンプル建設会社',
       timezone: 'Asia/Tokyo',
       payrollRounding: 'ROUND',
       standardWorkHours: 480, // 8時間 = 480分
@@ -17,82 +20,63 @@ async function main() {
     },
   })
 
-  // 管理者ユーザーを作成
-  const adminUser = await prisma.user.create({
-    data: {
-      email: 'admin@construction.co.jp',
-      password: await bcrypt.hash('admin123', 12),
-      name: '管理者',
+  // 管理者ユーザーを作成（デモアカウント用）
+  const adminUser = await prisma.user.upsert({
+    where: { email: 'admin@example.com' },
+    update: {},
+    create: {
+      email: 'admin@example.com',
+      password: await bcrypt.hash('password123', 12),
+      name: '管理者太郎',
       role: 'ADMIN',
-      companyId: company.id,
+      companyId: demoCompany.id,
       employmentType: '正社員',
       hourlyWage: 2000,
       phone: '03-1234-5678',
     },
   })
 
-  // マネージャーユーザーを作成
-  const managerUser = await prisma.user.create({
-    data: {
-      email: 'manager@construction.co.jp',
-      password: await bcrypt.hash('manager123', 12),
-      name: '現場監督太郎',
-      role: 'MANAGER',
-      companyId: company.id,
+  // 従業員ユーザーを作成（デモアカウント用）
+  const employee1 = await prisma.user.upsert({
+    where: { email: 'employee1@example.com' },
+    update: {},
+    create: {
+      email: 'employee1@example.com',
+      password: await bcrypt.hash('password123', 12),
+      name: '作業員花子',
+      role: 'EMPLOYEE',
+      companyId: demoCompany.id,
       employmentType: '正社員',
-      hourlyWage: 1800,
-      phone: '03-1234-5679',
+      hourlyWage: 1500,
+      phone: '03-1234-5680',
+    },
+  })
+  
+  const employee2 = await prisma.user.upsert({
+    where: { email: 'employee2@example.com' },
+    update: {},
+    create: {
+      email: 'employee2@example.com',
+      password: await bcrypt.hash('password123', 12),
+      name: '作業員次郎',
+      role: 'EMPLOYEE',
+      companyId: demoCompany.id,
+      employmentType: 'パート',
+      hourlyWage: 1400,
+      phone: '03-1234-5681',
     },
   })
 
-  // 従業員ユーザーを作成
-  const employees = await Promise.all([
-    prisma.user.create({
-      data: {
-        email: 'employee1@construction.co.jp',
-        password: await bcrypt.hash('employee123', 12),
-        name: '作業員花子',
-        role: 'EMPLOYEE',
-        companyId: company.id,
-        employmentType: '正社員',
-        hourlyWage: 1500,
-        phone: '03-1234-5680',
-      },
-    }),
-    prisma.user.create({
-      data: {
-        email: 'employee2@construction.co.jp',
-        password: await bcrypt.hash('employee123', 12),
-        name: '作業員次郎',
-        role: 'EMPLOYEE',
-        companyId: company.id,
-        employmentType: 'パート',
-        hourlyWage: 1400,
-        phone: '03-1234-5681',
-      },
-    }),
-    prisma.user.create({
-      data: {
-        email: 'employee3@construction.co.jp',
-        password: await bcrypt.hash('employee123', 12),
-        name: '職人三郎',
-        role: 'EMPLOYEE',
-        companyId: company.id,
-        employmentType: '正社員',
-        hourlyWage: 1800,
-        phone: '03-1234-5682',
-      },
-    }),
-  ])
+  const employees = [employee1, employee2]
 
   // サンプル現場を作成
   const sites = await Promise.all([
     prisma.site.create({
       data: {
-        name: '新宿オフィスビル建設',
+        name: '新宿オフィスビル建設現場',
         address: '東京都新宿区2-2-2',
         client: '新宿開発株式会社',
-        companyId: company.id,
+        companyId: demoCompany.id,
         active: true,
         startDate: new Date('2024-01-01'),
         endDate: new Date('2024-12-31'),
@@ -103,7 +87,7 @@ async function main() {
         name: '渋谷マンション建設',
         address: '東京都渋谷区3-3-3',
         client: '渋谷住宅株式会社',
-        companyId: company.id,
+        companyId: demoCompany.id,
         active: true,
         startDate: new Date('2024-02-01'),
         endDate: new Date('2025-01-31'),
@@ -111,10 +95,10 @@ async function main() {
     }),
     prisma.site.create({
       data: {
-        name: '池袋商業施設建設',
+        name: '渋谷マンション改修工事',
         address: '東京都豊島区4-4-4',
         client: '池袋商業開発株式会社',
-        companyId: company.id,
+        companyId: demoCompany.id,
         active: false,
         startDate: new Date('2024-06-01'),
         endDate: new Date('2025-05-31'),

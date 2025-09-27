@@ -1,461 +1,639 @@
-'use client'
+'use client';
 
-import { useState, useEffect } from 'react'
-import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
-import Layout from '@/components/layout/Layout'
-import EmployeeLayout from '@/components/layout/EmployeeLayout'
-import PunchButton from '@/components/ui/PunchButton'
-import { formatMinutesToTime } from '@/lib/utils/time-calculation'
-import { ClockIcon, CalendarIcon, HomeIcon, EyeIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import EmployeeLayout from '@/components/layout/EmployeeLayout';
+import Layout from '@/components/layout/Layout';
+import {
+  ClockIcon,
+  CalendarDaysIcon,
+  UserIcon,
+  ChartBarIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  PlayIcon,
+  StopIcon,
+  PauseIcon,
+  MagnifyingGlassIcon,
+  FunnelIcon,
+  DocumentArrowDownIcon,
+} from '@heroicons/react/24/outline';
+
+// Types
+interface AttendanceRecord {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  date: string;
+  clockIn: string | null;
+  clockOut: string | null;
+  breakStart: string | null;
+  breakEnd: string | null;
+  workHours: number;
+  overtimeHours: number;
+  status: 'present' | 'absent' | 'late' | 'early_leave' | 'working';
+  notes: string;
+  location: string;
+}
+
+interface AttendanceStats {
+  totalWorkDays: number;
+  presentDays: number;
+  absentDays: number;
+  lateDays: number;
+  totalWorkHours: number;
+  averageWorkHours: number;
+  overtimeHours: number;
+}
+
+// Sample attendance data
+const sampleAttendanceData: AttendanceRecord[] = [
+  {
+    id: '1',
+    employeeId: '001',
+    employeeName: '田中太郎',
+    date: '2024-01-26',
+    clockIn: '09:00',
+    clockOut: '18:00',
+    breakStart: '12:00',
+    breakEnd: '13:00',
+    workHours: 8,
+    overtimeHours: 0,
+    status: 'present',
+    notes: '',
+    location: '本社'
+  },
+  {
+    id: '2',
+    employeeId: '001',
+    employeeName: '田中太郎',
+    date: '2024-01-25',
+    clockIn: '09:15',
+    clockOut: '18:30',
+    breakStart: '12:00',
+    breakEnd: '13:00',
+    workHours: 8.25,
+    overtimeHours: 0.5,
+    status: 'late',
+    notes: '電車遅延のため遅刻',
+    location: '本社'
+  },
+  {
+    id: '3',
+    employeeId: '001',
+    employeeName: '田中太郎',
+    date: '2024-01-24',
+    clockIn: '08:45',
+    clockOut: '19:00',
+    breakStart: '12:00',
+    breakEnd: '13:00',
+    workHours: 9.25,
+    overtimeHours: 1.25,
+    status: 'present',
+    notes: '残業対応',
+    location: '本社'
+  },
+  {
+    id: '4',
+    employeeId: '001',
+    employeeName: '田中太郎',
+    date: '2024-01-23',
+    clockIn: null,
+    clockOut: null,
+    breakStart: null,
+    breakEnd: null,
+    workHours: 0,
+    overtimeHours: 0,
+    status: 'absent',
+    notes: '有給休暇',
+    location: ''
+  },
+  {
+    id: '5',
+    employeeId: '001',
+    employeeName: '田中太郎',
+    date: '2024-01-22',
+    clockIn: '09:00',
+    clockOut: '17:30',
+    breakStart: '12:00',
+    breakEnd: '13:00',
+    workHours: 7.5,
+    overtimeHours: 0,
+    status: 'early_leave',
+    notes: '早退（体調不良）',
+    location: '本社'
+  }
+];
+
+// Today's attendance for clock in/out functionality
+interface TodayAttendance {
+  clockIn: string | null;
+  clockOut: string | null;
+  breakStart: string | null;
+  breakEnd: string | null;
+  status: 'not_started' | 'working' | 'on_break' | 'finished';
+}
+
+const AttendanceClockModal = ({ 
+  isOpen, 
+  onClose, 
+  action, 
+  onConfirm 
+}: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  action: string; 
+  onConfirm: () => void; 
+}) => {
+  const [notes, setNotes] = useState('');
+
+  if (!isOpen) return null;
+
+  const actionLabels: { [key: string]: string } = {
+    clockIn: '出勤',
+    clockOut: '退勤',
+    breakStart: '休憩開始',
+    breakEnd: '休憩終了'
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold text-gray-900">
+            {actionLabels[action]}確認
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 text-xl font-bold"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="mb-4">
+          <p className="text-gray-600 mb-2">
+            現在時刻: {new Date().toLocaleTimeString('ja-JP', { hour12: false })}
+          </p>
+          <p className="text-gray-800">
+            {actionLabels[action]}を記録しますか？
+          </p>
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            備考（任意）
+          </label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={3}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="備考があれば入力してください"
+          />
+        </div>
+
+        <div className="flex justify-end space-x-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200"
+          >
+            キャンセル
+          </button>
+          <button
+            onClick={() => {
+              onConfirm();
+              onClose();
+            }}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          >
+            確認
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default function AttendancePage() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
-  const [attendanceStatus, setAttendanceStatus] = useState<any>({ isWorking: false })
-  const [attendanceList, setAttendanceList] = useState([])
-  const [sites, setSites] = useState([])
-  const [selectedSite, setSelectedSite] = useState<any>(null)
-  const [loading, setLoading] = useState(false)
-  const [currentMonth, setCurrentMonth] = useState(new Date())
-  const [showAllRecords, setShowAllRecords] = useState(false)
-  const [allTimeRecords, setAllTimeRecords] = useState([])
-  const [allTimeLoading, setAllTimeLoading] = useState(false)
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>(sampleAttendanceData);
+  const [filteredRecords, setFilteredRecords] = useState<AttendanceRecord[]>(sampleAttendanceData);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [dateRange, setDateRange] = useState({ start: '', end: '' });
+  const [todayAttendance, setTodayAttendance] = useState<TodayAttendance>({
+    clockIn: null,
+    clockOut: null,
+    breakStart: null,
+    breakEnd: null,
+    status: 'not_started'
+  });
+  const [isClockModalOpen, setIsClockModalOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<string>('');
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/auth/signin')
-    } else if (session) {
-      fetchData()
+    if (status === 'loading') return;
+    if (!session) {
+      router.push('/auth/signin');
+      return;
     }
-  }, [status, session, router])
+  }, [session, status, router]);
 
-  const fetchData = async () => {
-    await Promise.all([
-      fetchAttendanceStatus(),
-      fetchAttendanceList(),
-      fetchSites()
-    ])
-  }
+  useEffect(() => {
+    let filtered = attendanceRecords;
 
-  const fetchAttendanceStatus = async () => {
-    try {
-      const response = await fetch('/api/attendance/current')
-      if (response.ok) {
-        const data = await response.json()
-        setAttendanceStatus(data.data || { isWorking: false })
-      }
-    } catch (error) {
-      console.error('Failed to fetch attendance status:', error)
+    // Filter by employee if not admin
+    if (session?.user.role !== 'ADMIN') {
+      filtered = filtered.filter(record => record.employeeId === session?.user.id);
     }
-  }
 
-  const fetchAttendanceList = async () => {
-    try {
-      const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1)
-      const endOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0)
+    if (searchTerm && session?.user.role === 'ADMIN') {
+      filtered = filtered.filter(record =>
+        record.employeeName.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(record => record.status === statusFilter);
+    }
+
+    if (dateRange.start) {
+      filtered = filtered.filter(record => record.date >= dateRange.start);
+    }
+
+    if (dateRange.end) {
+      filtered = filtered.filter(record => record.date <= dateRange.end);
+    }
+
+    setFilteredRecords(filtered);
+  }, [attendanceRecords, searchTerm, statusFilter, dateRange, session]);
+
+  const handleClockAction = (action: string) => {
+    setPendingAction(action);
+    setIsClockModalOpen(true);
+  };
+
+  const confirmClockAction = () => {
+    const now = new Date();
+    const timeString = now.toLocaleTimeString('ja-JP', { hour12: false, hour: '2-digit', minute: '2-digit' });
+
+    setTodayAttendance(prev => {
+      const newAttendance = { ...prev };
       
-      const params = new URLSearchParams({
-        startDate: startOfMonth.toISOString().split('T')[0],
-        endDate: endOfMonth.toISOString().split('T')[0],
-        limit: '31'
-      })
-
-      const response = await fetch(`/api/attendance?${params}`)
-      if (response.ok) {
-        const data = await response.json()
-        setAttendanceList(data.data || [])
+      switch (pendingAction) {
+        case 'clockIn':
+          newAttendance.clockIn = timeString;
+          newAttendance.status = 'working';
+          break;
+        case 'clockOut':
+          newAttendance.clockOut = timeString;
+          newAttendance.status = 'finished';
+          break;
+        case 'breakStart':
+          newAttendance.breakStart = timeString;
+          newAttendance.status = 'on_break';
+          break;
+        case 'breakEnd':
+          newAttendance.breakEnd = timeString;
+          newAttendance.status = 'working';
+          break;
       }
-    } catch (error) {
-      console.error('Failed to fetch attendance list:', error)
-      setAttendanceList([])
-    }
-  }
+      
+      return newAttendance;
+    });
+  };
 
-  const fetchAllTimeRecords = async () => {
-    setAllTimeLoading(true)
-    try {
-      // 全期間の記録を取得（制限なし）
-      const params = new URLSearchParams({
-        limit: '1000' // 十分大きな数値
-      })
+  const getStatusBadge = (status: string) => {
+    const statusConfig = {
+      present: { label: '出勤', className: 'bg-green-100 text-green-800' },
+      absent: { label: '欠勤', className: 'bg-red-100 text-red-800' },
+      late: { label: '遅刻', className: 'bg-yellow-100 text-yellow-800' },
+      early_leave: { label: '早退', className: 'bg-orange-100 text-orange-800' },
+      working: { label: '勤務中', className: 'bg-blue-100 text-blue-800' }
+    };
+    const config = statusConfig[status as keyof typeof statusConfig];
+    return (
+      <span className={`px-2 py-1 rounded-full text-xs font-medium ${config.className}`}>
+        {config.label}
+      </span>
+    );
+  };
 
-      const response = await fetch(`/api/attendance?${params}`)
-      if (response.ok) {
-        const data = await response.json()
-        setAllTimeRecords(data.data || [])
-      }
-    } catch (error) {
-      console.error('Failed to fetch all time records:', error)
-      setAllTimeRecords([])
-    } finally {
-      setAllTimeLoading(false)
-    }
-  }
+  const calculateStats = (): AttendanceStats => {
+    const records = session?.user.role === 'ADMIN' ? filteredRecords : 
+                   filteredRecords.filter(record => record.employeeId === session?.user.id);
+    
+    return {
+      totalWorkDays: records.length,
+      presentDays: records.filter(r => r.status === 'present' || r.status === 'late' || r.status === 'early_leave').length,
+      absentDays: records.filter(r => r.status === 'absent').length,
+      lateDays: records.filter(r => r.status === 'late').length,
+      totalWorkHours: records.reduce((sum, r) => sum + r.workHours, 0),
+      averageWorkHours: records.length > 0 ? records.reduce((sum, r) => sum + r.workHours, 0) / records.length : 0,
+      overtimeHours: records.reduce((sum, r) => sum + r.overtimeHours, 0)
+    };
+  };
 
-  const handleShowAllRecords = () => {
-    setShowAllRecords(true)
-    fetchAllTimeRecords()
-  }
-
-  const handleBackToMonth = () => {
-    setShowAllRecords(false)
-  }
-
-  const fetchSites = async () => {
-    try {
-      const response = await fetch('/api/sites?active=true')
-      if (response.ok) {
-        const data = await response.json()
-        setSites(data.data || [])
-        if (data.data && data.data.length > 0 && !selectedSite) {
-          setSelectedSite(data.data[0])
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch sites:', error)
-      setSites([])
-    }
-  }
-
-  const handleClockIn = async (clockData: any) => {
-    setLoading(true)
-    try {
-      const response = await fetch('/api/attendance/clock-in', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(clockData)
-      })
-
-      if (response.ok) {
-        await fetchData()
-      } else {
-        const error = await response.json()
-        throw new Error(error.error || '出勤処理に失敗しました')
-      }
-    } catch (error) {
-      throw error
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleClockOut = async (clockData: any) => {
-    setLoading(true)
-    try {
-      const response = await fetch('/api/attendance/clock-out', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(clockData)
-      })
-
-      if (response.ok) {
-        await fetchData()
-      } else {
-        const error = await response.json()
-        throw new Error(error.error || '退勤処理に失敗しました')
-      }
-    } catch (error) {
-      throw error
-    } finally {
-      setLoading(false)
-    }
-  }
+  const stats = calculateStats();
+  const isAdmin = session?.user.role === 'ADMIN';
+  const LayoutComponent = isAdmin ? Layout : EmployeeLayout;
 
   if (status === 'loading') {
-    return <div className="min-h-screen flex items-center justify-center">読み込み中...</div>
+    return (
+      <LayoutComponent>
+        <div className="flex justify-center items-center h-64">
+          <div className="text-gray-500">読み込み中...</div>
+        </div>
+      </LayoutComponent>
+    );
   }
 
-  if (!session) return null
-
-  const handleGoHome = () => {
-    router.push('/home')
+  if (!session) {
+    return null;
   }
-
-  // Choose layout based on user role (attendance is primarily for employees)
-  const LayoutComponent = session?.user.role === 'EMPLOYEE' ? EmployeeLayout : Layout
 
   return (
     <LayoutComponent>
-      <div className="px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <div className="flex items-center mb-4">
-            <button
-              onClick={handleGoHome}
-              className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-            >
-              <HomeIcon className="h-4 w-4 mr-2" />
-              ホームに戻る
-            </button>
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900">出退勤管理</h1>
-          <p className="text-gray-600">GPS機能を使った正確な勤怠記録</p>
+      <div className="p-6">
+        {/* ヘッダー */}
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">勤怠管理</h1>
+          <p className="text-gray-600">
+            {isAdmin ? '全従業員の勤怠状況を管理できます' : '勤怠の記録と確認ができます'}
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* 出退勤打刻 */}
-          <div className="space-y-6">
-            <div className="card">
-              <div className="card-header">
-                <h2 className="text-lg font-semibold flex items-center">
-                  <ClockIcon className="h-5 w-5 mr-2" />
-                  出退勤打刻
-                </h2>
+        {/* 今日の勤怠（従業員のみ） */}
+        {!isAdmin && (
+          <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200 mb-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">今日の勤怠</h2>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+              <div className="text-center">
+                <div className="text-sm text-gray-600">出勤時間</div>
+                <div className="text-lg font-semibold text-gray-900">
+                  {todayAttendance.clockIn || '--:--'}
+                </div>
               </div>
-              <div className="card-body">
-                {/* 現場選択 */}
-                {sites.length > 0 && !attendanceStatus.isWorking && (
-                  <div className="mb-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      現場を選択
-                    </label>
-                    <select
-                      value={selectedSite?.id || ''}
-                      onChange={(e) => {
-                        const site = sites.find((s: any) => s.id === e.target.value)
-                        setSelectedSite(site)
-                      }}
-                      className="input-field"
-                    >
-                      <option value="">現場を選択してください</option>
-                      {sites.map((site: any) => (
-                        <option key={site.id} value={site.id}>
-                          {site.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+              <div className="text-center">
+                <div className="text-sm text-gray-600">退勤時間</div>
+                <div className="text-lg font-semibold text-gray-900">
+                  {todayAttendance.clockOut || '--:--'}
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-sm text-gray-600">休憩開始</div>
+                <div className="text-lg font-semibold text-gray-900">
+                  {todayAttendance.breakStart || '--:--'}
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-sm text-gray-600">休憩終了</div>
+                <div className="text-lg font-semibold text-gray-900">
+                  {todayAttendance.breakEnd || '--:--'}
+                </div>
+              </div>
+            </div>
 
-                {/* 打刻ボタン */}
-                <PunchButton
-                  isWorking={attendanceStatus.isWorking}
-                  currentSite={selectedSite}
-                  onClockIn={handleClockIn}
-                  onClockOut={handleClockOut}
-                  loading={loading}
+            <div className="flex flex-wrap gap-3 justify-center">
+              <button
+                onClick={() => handleClockAction('clockIn')}
+                disabled={todayAttendance.clockIn !== null}
+                className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                <PlayIcon className="h-5 w-5 mr-2" />
+                出勤
+              </button>
+              <button
+                onClick={() => handleClockAction('breakStart')}
+                disabled={!todayAttendance.clockIn || todayAttendance.status === 'on_break'}
+                className="flex items-center px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                <PauseIcon className="h-5 w-5 mr-2" />
+                休憩開始
+              </button>
+              <button
+                onClick={() => handleClockAction('breakEnd')}
+                disabled={todayAttendance.status !== 'on_break'}
+                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                <PlayIcon className="h-5 w-5 mr-2" />
+                休憩終了
+              </button>
+              <button
+                onClick={() => handleClockAction('clockOut')}
+                disabled={!todayAttendance.clockIn || todayAttendance.clockOut !== null}
+                className="flex items-center px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                <StopIcon className="h-5 w-5 mr-2" />
+                退勤
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* 統計カード */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+          <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+            <div className="flex items-center">
+              <CalendarDaysIcon className="h-12 w-12 text-blue-600" />
+              <div className="ml-4">
+                <h3 className="text-lg font-semibold text-gray-900">総勤務日数</h3>
+                <p className="text-3xl font-bold text-blue-600">{stats.totalWorkDays}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+            <div className="flex items-center">
+              <CheckCircleIcon className="h-12 w-12 text-green-600" />
+              <div className="ml-4">
+                <h3 className="text-lg font-semibold text-gray-900">出勤日数</h3>
+                <p className="text-3xl font-bold text-green-600">{stats.presentDays}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+            <div className="flex items-center">
+              <ClockIcon className="h-12 w-12 text-purple-600" />
+              <div className="ml-4">
+                <h3 className="text-lg font-semibold text-gray-900">総勤務時間</h3>
+                <p className="text-3xl font-bold text-purple-600">{stats.totalWorkHours.toFixed(1)}h</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+            <div className="flex items-center">
+              <ChartBarIcon className="h-12 w-12 text-orange-600" />
+              <div className="ml-4">
+                <h3 className="text-lg font-semibold text-gray-900">残業時間</h3>
+                <p className="text-3xl font-bold text-orange-600">{stats.overtimeHours.toFixed(1)}h</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* フィルターとアクション */}
+        <div className="bg-white p-4 rounded-lg shadow-md border border-gray-200 mb-6">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+              {isAdmin && (
+                <div className="relative">
+                  <MagnifyingGlassIcon className="h-5 w-5 absolute left-3 top-3 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="従業員名で検索..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-60"
+                  />
+                </div>
+              )}
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">全ステータス</option>
+                <option value="present">出勤</option>
+                <option value="absent">欠勤</option>
+                <option value="late">遅刻</option>
+                <option value="early_leave">早退</option>
+              </select>
+              <div className="flex gap-2">
+                <input
+                  type="date"
+                  value={dateRange.start}
+                  onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <span className="self-center text-gray-500">〜</span>
+                <input
+                  type="date"
+                  value={dateRange.end}
+                  onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
-
-            {/* 今日の勤務情報 */}
-            {attendanceStatus.isWorking && (
-              <div className="card">
-                <div className="card-header">
-                  <h3 className="text-lg font-semibold">今日の勤務情報</h3>
-                </div>
-                <div className="card-body">
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">出勤時刻</span>
-                      <span className="font-medium">
-                        {new Date(attendanceStatus.currentAttendance?.clockInAt).toLocaleTimeString('ja-JP', {
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </span>
-                    </div>
-                    {attendanceStatus.currentAttendance?.site && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">現場</span>
-                        <span className="font-medium">{attendanceStatus.currentAttendance.site.name}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">現在の労働時間</span>
-                      <span className="font-medium text-blue-600">
-                        {formatMinutesToTime(
-                          Math.floor((new Date().getTime() - new Date(attendanceStatus.currentAttendance?.clockInAt).getTime()) / 60000)
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* 今月の出勤記録 / 全記録 */}
-          <div className="space-y-6">
-            <div className="card">
-              <div className="card-header flex justify-between items-center">
-                <h2 className="text-lg font-semibold flex items-center">
-                  <CalendarIcon className="h-5 w-5 mr-2" />
-                  {showAllRecords ? '全出勤記録' : '今月の出勤記録'}
-                </h2>
-                {!showAllRecords ? (
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => {
-                        const newMonth = new Date(currentMonth)
-                        newMonth.setMonth(newMonth.getMonth() - 1)
-                        setCurrentMonth(newMonth)
-                      }}
-                      className="btn btn-sm btn-secondary"
-                    >
-                      ←
-                    </button>
-                    <span className="text-sm font-medium">
-                      {currentMonth.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long' })}
-                    </span>
-                    <button
-                      onClick={() => {
-                        const newMonth = new Date(currentMonth)
-                        newMonth.setMonth(newMonth.getMonth() + 1)
-                        setCurrentMonth(newMonth)
-                      }}
-                      className="btn btn-sm btn-secondary"
-                    >
-                      →
-                    </button>
-                    <button
-                      onClick={handleShowAllRecords}
-                      className="btn btn-sm btn-primary ml-2 flex items-center"
-                    >
-                      <EyeIcon className="h-4 w-4 mr-1" />
-                      すべて表示
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={handleBackToMonth}
-                    className="btn btn-sm btn-secondary flex items-center"
-                  >
-                    <ArrowLeftIcon className="h-4 w-4 mr-1" />
-                    月表示に戻る
-                  </button>
-                )}
-              </div>
-              <div className="card-body p-0">
-                {allTimeLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="loading-spinner w-6 h-6"></div>
-                    <span className="ml-2 text-gray-600">読み込み中...</span>
-                  </div>
-                ) : (
-                  <div className="table-responsive">
-                    <table className="table">
-                      <thead>
-                        <tr>
-                          <th>{showAllRecords ? '日付' : '日付'}</th>
-                          <th>出勤</th>
-                          <th>退勤</th>
-                          <th>労働時間</th>
-                          {showAllRecords && <th>現場</th>}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(showAllRecords ? allTimeRecords : attendanceList).length > 0 ? (
-                          (showAllRecords ? allTimeRecords : attendanceList).map((attendance: any) => (
-                            <tr key={attendance.id}>
-                              <td>
-                                {new Date(attendance.clockInAt).toLocaleDateString('ja-JP', {
-                                  year: showAllRecords ? 'numeric' : undefined,
-                                  month: 'numeric',
-                                  day: 'numeric'
-                                })}
-                              </td>
-                              <td>
-                                {new Date(attendance.clockInAt).toLocaleTimeString('ja-JP', {
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })}
-                              </td>
-                              <td>
-                                {attendance.clockOutAt ? (
-                                  new Date(attendance.clockOutAt).toLocaleTimeString('ja-JP', {
-                                    hour: '2-digit',
-                                    minute: '2-digit'
-                                  })
-                                ) : (
-                                  <span className="badge badge-info">勤務中</span>
-                                )}
-                              </td>
-                              <td>
-                                {attendance.workedMinutes > 0 ? (
-                                  <span className="font-medium">
-                                    {formatMinutesToTime(attendance.workedMinutes)}
-                                  </span>
-                                ) : (
-                                  '-'
-                                )}
-                              </td>
-                              {showAllRecords && (
-                                <td>
-                                  <span className="text-sm text-gray-600">
-                                    {attendance.site?.name || '現場未設定'}
-                                  </span>
-                                </td>
-                              )}
-                            </tr>
-                          ))
-                        ) : (
-                          <tr>
-                            <td colSpan={showAllRecords ? 5 : 4} className="text-center py-8 text-gray-500">
-                              出勤記録がありません
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* 統計 */}
-            <div className="card">
-              <div className="card-header">
-                <h3 className="text-lg font-semibold">
-                  {showAllRecords ? '全期間統計' : '月間統計'}
-                </h3>
-              </div>
-              <div className="card-body">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-blue-600">
-                      {(showAllRecords ? allTimeRecords : attendanceList).filter((a: any) => a.clockOutAt).length}
-                    </div>
-                    <div className="text-sm text-gray-600">出勤日数</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-green-600">
-                      {formatMinutesToTime(
-                        (showAllRecords ? allTimeRecords : attendanceList).reduce((sum: number, a: any) => sum + (a.workedMinutes || 0), 0)
-                      )}
-                    </div>
-                    <div className="text-sm text-gray-600">総労働時間</div>
-                  </div>
-                </div>
-                {showAllRecords && (
-                  <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-200">
-                    <div className="text-center">
-                      <div className="text-lg font-bold text-purple-600">
-                        {Math.round(
-                          (showAllRecords ? allTimeRecords : attendanceList).reduce((sum: number, a: any) => sum + (a.workedMinutes || 0), 0) / 60
-                        )}h
-                      </div>
-                      <div className="text-sm text-gray-600">平均月労働時間</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-lg font-bold text-orange-600">
-                        {(showAllRecords ? allTimeRecords : attendanceList).length > 0 
-                          ? Math.round(
-                              (showAllRecords ? allTimeRecords : attendanceList).reduce((sum: number, a: any) => sum + (a.workedMinutes || 0), 0) / 
-                              (showAllRecords ? allTimeRecords : attendanceList).filter((a: any) => a.clockOutAt).length / 60 * 10
-                            ) / 10
-                          : 0
-                        }h
-                      </div>
-                      <div className="text-sm text-gray-600">平均日労働時間</div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+            <button className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">
+              <DocumentArrowDownIcon className="h-5 w-5 mr-2" />
+              Excel出力
+            </button>
           </div>
         </div>
+
+        {/* 勤怠記録一覧 */}
+        <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    日付
+                  </th>
+                  {isAdmin && (
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      従業員
+                    </th>
+                  )}
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    出勤時間
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    退勤時間
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    休憩時間
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    勤務時間
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    残業時間
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    ステータス
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    備考
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredRecords.map((record) => (
+                  <tr key={record.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <CalendarDaysIcon className="h-5 w-5 text-gray-400 mr-2" />
+                        <div className="text-sm font-medium text-gray-900">{record.date}</div>
+                      </div>
+                    </td>
+                    {isAdmin && (
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <UserIcon className="h-5 w-5 text-gray-400 mr-2" />
+                          <div className="text-sm font-medium text-gray-900">{record.employeeName}</div>
+                        </div>
+                      </td>
+                    )}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{record.clockIn || '--:--'}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{record.clockOut || '--:--'}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        {record.breakStart && record.breakEnd 
+                          ? `${record.breakStart} - ${record.breakEnd}`
+                          : '--:-- - --:--'
+                        }
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{record.workHours.toFixed(1)}h</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">
+                        {record.overtimeHours > 0 ? `${record.overtimeHours.toFixed(1)}h` : '--'}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {getStatusBadge(record.status)}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-gray-900 max-w-xs truncate">{record.notes || '--'}</div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {filteredRecords.length === 0 && (
+            <div className="text-center py-12">
+              <ClockIcon className="mx-auto h-12 w-12 text-gray-400" />
+              <h3 className="mt-2 text-sm font-medium text-gray-900">勤怠記録が見つかりません</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                検索条件を変更してください。
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* 打刻確認モーダル */}
+        <AttendanceClockModal
+          isOpen={isClockModalOpen}
+          onClose={() => setIsClockModalOpen(false)}
+          action={pendingAction}
+          onConfirm={confirmClockAction}
+        />
       </div>
     </LayoutComponent>
-  )
+  );
 }

@@ -48,6 +48,24 @@ export const authOptions: NextAuthOptions = {
 
         // デモアカウントのチェック
         if (demoAccounts[credentials.email] && credentials.password === 'password123') {
+          // デモ会社が存在するか確認し、なければ作成
+          let demoCompany = await prisma.company.findUnique({
+            where: { id: 'demo-company' }
+          })
+          
+          if (!demoCompany) {
+            demoCompany = await prisma.company.create({
+              data: {
+                id: 'demo-company',
+                name: 'サンプル建設会社',
+                timezone: 'Asia/Tokyo',
+                payrollRounding: 'ROUND',
+                standardWorkHours: 480,
+                gpsRequired: true,
+              }
+            })
+          }
+          
           return demoAccounts[credentials.email]
         }
 
@@ -125,38 +143,61 @@ export const authOptions: NextAuthOptions = {
   },
   events: {
     async signIn({ user, account, profile, isNewUser }) {
-      // ログイン監査ログを記録
-      if (user.id && user.companyId) {
-        await prisma.auditLog.create({
-          data: {
-            companyId: user.companyId,
-            actorId: user.id,
-            entity: 'auth',
-            entityId: user.id,
-            action: 'SIGN_IN',
-            afterText: JSON.stringify({
-              provider: account?.provider,
-              timestamp: new Date().toISOString()
+      // ログイン監査ログを記録（一時的に無効化）
+      try {
+        if (user.id && user.companyId) {
+          // CompanyIdが存在するかチェック
+          const company = await prisma.company.findUnique({
+            where: { id: user.companyId }
+          })
+          
+          if (company) {
+            await prisma.auditLog.create({
+              data: {
+                companyId: user.companyId,
+                actorId: user.id,
+                entity: 'auth',
+                entityId: user.id,
+                action: 'SIGN_IN',
+                afterText: JSON.stringify({
+                  provider: account?.provider,
+                  timestamp: new Date().toISOString()
+                })
+              }
             })
           }
-        })
+        }
+      } catch (error) {
+        console.error('Audit log creation failed:', error)
+        // ログイン自体は継続
       }
     },
     async signOut({ session, token }) {
-      // ログアウト監査ログを記録
-      if (token?.sub && token?.companyId) {
-        await prisma.auditLog.create({
-          data: {
-            companyId: token.companyId as string,
-            actorId: token.sub,
-            entity: 'auth',
-            entityId: token.sub,
-            action: 'SIGN_OUT',
-            afterText: JSON.stringify({
-              timestamp: new Date().toISOString()
+      // ログアウト監査ログを記録（一時的に無効化）
+      try {
+        if (token?.sub && token?.companyId) {
+          const company = await prisma.company.findUnique({
+            where: { id: token.companyId as string }
+          })
+          
+          if (company) {
+            await prisma.auditLog.create({
+              data: {
+                companyId: token.companyId as string,
+                actorId: token.sub,
+                entity: 'auth',
+                entityId: token.sub,
+                action: 'SIGN_OUT',
+                afterText: JSON.stringify({
+                  timestamp: new Date().toISOString()
+                })
+              }
             })
           }
-        })
+        }
+      } catch (error) {
+        console.error('Audit log creation failed:', error)
+        // ログアウト自体は継続
       }
     }
   }
