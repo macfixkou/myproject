@@ -63,7 +63,6 @@ export default function Sidebar({ user }: SidebarProps) {
                   <li key={item.name}>
                     <button
                       onClick={() => {
-                        console.log(`Navigation clicked: ${item.name} -> ${item.href}`)
                         router.push(item.href)
                       }}
                       className={`${

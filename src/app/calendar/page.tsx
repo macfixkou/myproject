@@ -16,9 +16,7 @@ import {
   CloudIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline'
-import { 
-  CloudRainIcon,
-} from '@heroicons/react/24/solid'
+
 
 interface AttendanceRecord {
   id: string
@@ -61,7 +59,7 @@ export default function CalendarPage() {
       case 'cloudy':
         return <CloudIcon className={`${iconClass} text-gray-500`} />
       case 'rainy':
-        return <CloudRainIcon className={`${iconClass} text-blue-500`} />
+        return <CloudIcon className={`${iconClass} text-blue-500`} />
       case 'snowy':
         return <CloudIcon className={`${iconClass} text-blue-200`} />
       default:
@@ -184,10 +182,7 @@ export default function CalendarPage() {
     return days
   }
 
-  const getAttendanceForDate = (date: Date) => {
-    const dateStr = date.toISOString().split('T')[0]
-    return attendanceRecords.find(record => record.date === dateStr)
-  }
+
 
   const getStatusColor = (status: string) => {
     switch (status) {

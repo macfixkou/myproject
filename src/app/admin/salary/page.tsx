@@ -69,7 +69,6 @@ interface SalaryData {
 }
 
 export default function SalaryPage() {
-  console.log('SalaryPage component loaded')
   
   const { data: session, status } = useSession()
   const [loading, setLoading] = useState(true)
@@ -91,19 +90,14 @@ export default function SalaryPage() {
   })
 
   useEffect(() => {
-    console.log('Auth status:', status, 'User role:', session?.user?.role)
-    
     if (status === 'unauthenticated') {
-      console.log('User not authenticated, showing error')
       setError('認証が必要です')
       return
     }
     if (status === 'authenticated' && session?.user?.role !== 'ADMIN' && session?.user?.role !== 'MANAGER') {
-      console.log('User does not have required role, showing error')
       setError('このページにアクセスする権限がありません')
       return
     }
-    console.log('Auth check passed')
   }, [status, session])
 
   // Fetch salary data from API
@@ -250,10 +244,7 @@ export default function SalaryPage() {
     saveAs(data, `給与一覧_${selectedPeriod.year}年${selectedPeriod.month}月.xlsx`)
   }
 
-  console.log('Render status - loading:', loading, 'status:', status, 'error:', error)
-
   if (status === 'loading' || loading) {
-    console.log('Showing loading state')
     return (
       <Layout>
         <div className="flex items-center justify-center py-8">
