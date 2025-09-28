@@ -1,0 +1,19 @@
+{
+  "buildCommand": "npm run vercel-build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "functions": {
+    "app/api/**/*.ts": {
+      "maxDuration": 30
+    }
+  },
+  "env": {
+    "NODE_ENV": "production",
+    "NEXTAUTH_URL": "https://myproject-chi-roan.vercel.app",
+    "NEXTAUTH_SECRET": "construction-app-secret-key-2024-very-long-random-string-for-production",
+    "DATABASE_URL": "file:./prisma/prod.db",
+    "SKIP_ENV_VALIDATION": "true",
+    "NEXT_TELEMETRY_DISABLED": "1"
+  }
+}
