@@ -4,6 +4,9 @@ import { requireAuth } from '@/lib/auth/utils'
 import { isWithinGeofence } from '@/lib/utils/gps'
 import { z } from 'zod'
 
+// 動的レンダリングを強制
+export const dynamic = 'force-dynamic'
+
 const clockInSchema = z.object({
   siteId: z.string().optional(),
   gps: z.object({

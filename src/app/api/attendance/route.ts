@@ -3,6 +3,9 @@ import { prisma } from '@/lib/db/prisma'
 import { requireAuth, checkUserAccess } from '@/lib/auth/utils'
 import { z } from 'zod'
 
+// 動的レンダリングを強制
+export const dynamic = 'force-dynamic'
+
 const attendanceQuerySchema = z.object({
   userId: z.string().optional().nullable(),
   siteId: z.string().optional().nullable(),

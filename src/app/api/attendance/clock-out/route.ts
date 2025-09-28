@@ -5,6 +5,8 @@ import { isWithinGeofence } from '@/lib/utils/gps'
 import { calculateWorkTime } from '@/lib/utils/time-calculation'
 import { z } from 'zod'
 
+export const dynamic = 'force-dynamic'
+
 const clockOutSchema = z.object({
   gps: z.object({
     lat: z.number(),
