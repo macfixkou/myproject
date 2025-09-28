@@ -99,9 +99,22 @@ export default function AddEmployeeForm({ onSubmit, onCancel, isLoading = false 
   const handleFormSubmit = async (data: EmployeeFormData) => {
     setSubmitError(null)
     try {
-      await onSubmit(data)
+      // パスワード確認の最終チェック
+      if (data.password !== data.confirmPassword) {
+        setSubmitError('パスワードが一致しません')
+        return
+      }
+      
+      console.log('Submitting employee data:', data)
+      
+      // confirmPasswordを除いたデータを送信
+      const { confirmPassword, ...submitData } = data
+      
+      await onSubmit(submitData)
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : '従業員の追加に失敗しました')
+      console.error('Form submission error:', error)
+      const errorMessage = error instanceof Error ? error.message : '従業員の追加に失敗しました'
+      setSubmitError(errorMessage)
     }
   }
 
@@ -562,7 +575,7 @@ export default function AddEmployeeForm({ onSubmit, onCancel, isLoading = false 
               ) : (
                 <button
                   type="submit"
-                  disabled={isLoading || !isValid}
+                  disabled={isLoading}
                   className="px-6 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                 >
                   {isLoading && (

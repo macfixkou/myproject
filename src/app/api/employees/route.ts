@@ -121,6 +121,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
+    console.log('Received employee data:', body)
     
     // 必須フィールドのバリデーション
     const requiredFields = [
@@ -152,6 +153,8 @@ export async function POST(request: NextRequest) {
       password,
       notes
     } = body
+    
+    // confirmPasswordは除外（フロントエンド側のバリデーション用）
 
     // メールアドレスの重複チェック
     const existingUser = await prisma.user.findUnique({
@@ -227,11 +230,28 @@ export async function POST(request: NextRequest) {
     
     // Prisma エラーの詳細処理
     if (error instanceof Error) {
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      })
+      
       if (error.message.includes('Unique constraint')) {
         return NextResponse.json({ 
           error: '入力されたデータが既に存在します' 
         }, { status: 400 })
       }
+      
+      if (error.message.includes('Foreign key constraint')) {
+        return NextResponse.json({ 
+          error: 'データベース制約エラーが発生しました' 
+        }, { status: 400 })
+      }
+      
+      // その他の具体的なエラーメッセージ
+      return NextResponse.json({ 
+        error: `従業員作成エラー: ${error.message}` 
+      }, { status: 500 })
     }
 
     return NextResponse.json(

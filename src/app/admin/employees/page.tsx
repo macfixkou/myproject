@@ -96,6 +96,8 @@ export default function EmployeesPage() {
     try {
       setAddEmployeeLoading(true)
       
+      console.log('Sending employee data to API:', employeeData)
+      
       const response = await fetch('/api/employees', {
         method: 'POST',
         headers: {
@@ -104,8 +106,12 @@ export default function EmployeesPage() {
         body: JSON.stringify(employeeData),
       })
 
+      console.log('API Response status:', response.status)
+      
       if (response.ok) {
         const result = await response.json()
+        console.log('API Success response:', result)
+        
         // 成功通知
         alert(`従業員「${result.employee.name}」が正常に追加されました！`)
         
@@ -116,6 +122,7 @@ export default function EmployeesPage() {
         setRefreshData(prev => !prev)
       } else {
         const error = await response.json()
+        console.error('API Error response:', error)
         throw new Error(error.error || '従業員の追加に失敗しました')
       }
     } catch (error) {
