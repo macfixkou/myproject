@@ -20,8 +20,17 @@ interface HeaderProps {
 }
 
 export default function Header({ onMenuClick, user }: HeaderProps) {
-  const handleSignOut = () => {
-    signOut({ callbackUrl: '/auth/signin' })
+  const handleSignOut = async () => {
+    console.log('Logout button clicked')
+    try {
+      await signOut({ 
+        callbackUrl: '/auth/signin'
+      })
+    } catch (error) {
+      console.error('Sign out error:', error)
+      // フォールバック：直接リダイレクト
+      window.location.href = '/auth/signin'
+    }
   }
 
   return (

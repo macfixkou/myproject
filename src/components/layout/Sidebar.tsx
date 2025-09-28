@@ -39,6 +39,11 @@ export default function Sidebar({ user }: SidebarProps) {
     item.roles.includes(user.role)
   )
 
+  const handleNavigation = (href: string) => {
+    console.log('Navigating to:', href)
+    router.push(href)
+  }
+
   return (
     <div className="flex grow flex-col gap-y-5 overflow-y-auto border-r border-gray-200 bg-white px-6">
       <div className="flex h-16 shrink-0 items-center">
@@ -62,9 +67,7 @@ export default function Sidebar({ user }: SidebarProps) {
                 return (
                   <li key={item.name}>
                     <button
-                      onClick={() => {
-                        router.push(item.href)
-                      }}
+                      onClick={() => handleNavigation(item.href)}
                       className={`${
                         isActive
                           ? 'bg-gray-50 text-primary-600'

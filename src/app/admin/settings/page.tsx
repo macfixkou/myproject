@@ -4,6 +4,12 @@ import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Layout from '@/components/layout/Layout'
+import CompanySettings from '@/components/settings/CompanySettings'
+import WorkSettings from '@/components/settings/WorkSettings'
+import UserManagementSettings from '@/components/settings/UserManagementSettings'
+import NotificationSettings from '@/components/settings/NotificationSettings'
+import LocationSettings from '@/components/settings/LocationSettings'
+import DataBackupSettings from '@/components/settings/DataBackupSettings'
 import {
   Cog6ToothIcon,
   HomeIcon,
@@ -12,7 +18,8 @@ import {
   ShieldCheckIcon,
   BellIcon,
   UserGroupIcon,
-  GlobeAltIcon
+  MapPinIcon,
+  ServerIcon
 } from '@heroicons/react/24/outline'
 
 export default function AdminSettingsPage() {
@@ -33,9 +40,9 @@ export default function AdminSettingsPage() {
     { id: 'company', name: '会社設定', icon: BuildingOfficeIcon },
     { id: 'work', name: '勤務設定', icon: ClockIcon },
     { id: 'users', name: 'ユーザー管理', icon: UserGroupIcon },
-    { id: 'security', name: 'セキュリティ', icon: ShieldCheckIcon },
     { id: 'notifications', name: '通知設定', icon: BellIcon },
-    { id: 'system', name: 'システム', icon: GlobeAltIcon },
+    { id: 'location', name: 'GPS・位置情報', icon: MapPinIcon },
+    { id: 'backup', name: 'データバックアップ', icon: ServerIcon },
   ]
 
   if (!mounted || status === 'loading') {
@@ -104,151 +111,13 @@ export default function AdminSettingsPage() {
         </div>
 
         {/* 設定コンテンツ */}
-        <div className="bg-white shadow rounded-lg">
-          {activeTab === 'company' && (
-            <div className="p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">会社設定</h2>
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    会社名
-                  </label>
-                  <input
-                    type="text"
-                    defaultValue="サンプル建設会社"
-                    className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-3"
-                    readOnly
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    郵便番号
-                  </label>
-                  <input
-                    type="text"
-                    defaultValue="100-0001"
-                    className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-3"
-                    readOnly
-                  />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    住所
-                  </label>
-                  <input
-                    type="text"
-                    defaultValue="東京都千代田区1-1-1 サンプルビル"
-                    className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-3"
-                    readOnly
-                  />
-                </div>
-              </div>
-              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                <p className="text-sm text-blue-700">💡 会社情報の編集機能は開発中です</p>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'work' && (
-            <div className="p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">勤務設定</h2>
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    標準労働時間（1日）
-                  </label>
-                  <select className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-3" disabled>
-                    <option>8時間</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    残業割増率
-                  </label>
-                  <select className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-3" disabled>
-                    <option>25%</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    深夜割増率
-                  </label>
-                  <select className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-3" disabled>
-                    <option>25%</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    休日割増率
-                  </label>
-                  <select className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-3" disabled>
-                    <option>35%</option>
-                  </select>
-                </div>
-              </div>
-              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                <p className="text-sm text-blue-700">💡 勤務設定の変更機能は開発中です</p>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'users' && (
-            <div className="p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">ユーザー管理</h2>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                  <div>
-                    <p className="font-medium text-gray-900">管理者アカウント</p>
-                    <p className="text-sm text-gray-500">admin@example.com</p>
-                  </div>
-                  <span className="bg-green-100 text-green-800 px-2 py-1 text-xs font-semibold rounded-full">
-                    アクティブ
-                  </span>
-                </div>
-                <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                  <div>
-                    <p className="font-medium text-gray-900">従業員1</p>
-                    <p className="text-sm text-gray-500">employee1@example.com</p>
-                  </div>
-                  <span className="bg-green-100 text-green-800 px-2 py-1 text-xs font-semibold rounded-full">
-                    アクティブ
-                  </span>
-                </div>
-                <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                  <div>
-                    <p className="font-medium text-gray-900">従業員2</p>
-                    <p className="text-sm text-gray-500">employee2@example.com</p>
-                  </div>
-                  <span className="bg-green-100 text-green-800 px-2 py-1 text-xs font-semibold rounded-full">
-                    アクティブ
-                  </span>
-                </div>
-              </div>
-              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                <p className="text-sm text-blue-700">💡 ユーザー管理機能は開発中です</p>
-              </div>
-            </div>
-          )}
-
-          {['security', 'notifications', 'system'].includes(activeTab) && (
-            <div className="p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                {settingsTabs.find(tab => tab.id === activeTab)?.name}
-              </h2>
-              <div className="text-center py-12">
-                <div className="mx-auto h-12 w-12 text-gray-400">
-                  <Cog6ToothIcon className="h-12 w-12" />
-                </div>
-                <h3 className="mt-2 text-sm font-medium text-gray-900">設定項目</h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  この機能は現在開発中です。
-                </p>
-                <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                  <p className="text-sm text-blue-700">💡 {settingsTabs.find(tab => tab.id === activeTab)?.name}機能は実装中です</p>
-                </div>
-              </div>
-            </div>
-          )}
+        <div>
+          {activeTab === 'company' && <CompanySettings />}
+          {activeTab === 'work' && <WorkSettings />}
+          {activeTab === 'users' && <UserManagementSettings />}
+          {activeTab === 'notifications' && <NotificationSettings />}
+          {activeTab === 'location' && <LocationSettings />}
+          {activeTab === 'backup' && <DataBackupSettings />}
         </div>
 
         {/* ユーザー情報 */}
