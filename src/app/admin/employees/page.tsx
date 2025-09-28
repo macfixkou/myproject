@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Layout from '@/components/layout/Layout'
 import AddEmployeeForm from '@/components/forms/AddEmployeeForm'
+import EmployeeSalaryForm from '@/components/forms/EmployeeSalaryForm'
 import { 
   PlusIcon, 
   MagnifyingGlassIcon,
@@ -20,7 +21,8 @@ import {
   ExclamationTriangleIcon,
   XMarkIcon,
   CheckIcon,
-  HomeIcon
+  HomeIcon,
+  CurrencyYenIcon
 } from '@heroicons/react/24/outline'
 
 interface Employee {
@@ -53,10 +55,13 @@ export default function EmployeesPage() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
+  const [showSalaryModal, setShowSalaryModal] = useState(false)
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(false)
   const [addEmployeeLoading, setAddEmployeeLoading] = useState(false)
+  const [salaryLoading, setSalaryLoading] = useState(false)
   const [refreshData, setRefreshData] = useState(false)
+  const [employeeSalaryConfigs, setEmployeeSalaryConfigs] = useState<{[key: string]: any}>({})
 
   useEffect(() => {
     setMounted(true)
@@ -136,6 +141,48 @@ export default function EmployeesPage() {
   const handleGoHome = () => {
     router.push('/home')
   }
+
+  // 給与設定の保存
+  const handleSalaryConfigSave = async (config: any) => {
+    try {
+      setSalaryLoading(true)
+      
+      // ローカルストレージに保存（実際の実装ではAPIに送信）
+      setEmployeeSalaryConfigs(prev => ({
+        ...prev,
+        [config.employeeId]: config
+      }))
+      
+      // LocalStorageにも保存
+      const existingConfigs = JSON.parse(localStorage.getItem('employeeSalaryConfigs') || '{}')
+      existingConfigs[config.employeeId] = config
+      localStorage.setItem('employeeSalaryConfigs', JSON.stringify(existingConfigs))
+      
+      alert(`${selectedEmployee?.name}の給与設定を保存しました`)
+      setShowSalaryModal(false)
+      setSelectedEmployee(null)
+    } catch (error) {
+      console.error('Error saving salary config:', error)
+      alert('給与設定の保存に失敗しました')
+    } finally {
+      setSalaryLoading(false)
+    }
+  }
+
+  // 給与設定の読み込み
+  const loadSalaryConfigs = () => {
+    try {
+      const configs = JSON.parse(localStorage.getItem('employeeSalaryConfigs') || '{}')
+      setEmployeeSalaryConfigs(configs)
+    } catch (error) {
+      console.error('Error loading salary configs:', error)
+    }
+  }
+
+  // 初期化時に給与設定を読み込み
+  useEffect(() => {
+    loadSalaryConfigs()
+  }, [])
 
   // サンプル従業員データ
   const sampleEmployees: Employee[] = [
@@ -511,13 +558,30 @@ export default function EmployeesPage() {
                             setShowDetailModal(true)
                           }}
                           className="text-blue-600 hover:text-blue-900"
+                          title="詳細を表示"
                         >
                           <EyeIcon className="h-4 w-4" />
                         </button>
-                        <button className="text-green-600 hover:text-green-900">
+                        <button 
+                          className="text-green-600 hover:text-green-900"
+                          title="編集"
+                        >
                           <PencilIcon className="h-4 w-4" />
                         </button>
-                        <button className="text-red-600 hover:text-red-900">
+                        <button
+                          onClick={() => {
+                            setSelectedEmployee(employee)
+                            setShowSalaryModal(true)
+                          }}
+                          className="text-yellow-600 hover:text-yellow-900"
+                          title="給与設定"
+                        >
+                          <CurrencyYenIcon className="h-4 w-4" />
+                        </button>
+                        <button 
+                          className="text-red-600 hover:text-red-900"
+                          title="削除"
+                        >
                           <TrashIcon className="h-4 w-4" />
                         </button>
                       </div>
@@ -652,6 +716,20 @@ export default function EmployeesPage() {
             onSubmit={handleAddEmployee}
             onCancel={() => setShowAddModal(false)}
             isLoading={addEmployeeLoading}
+          />
+        )}
+
+        {/* 給与設定フォーム */}
+        {showSalaryModal && selectedEmployee && (
+          <EmployeeSalaryForm
+            employee={selectedEmployee}
+            salaryConfig={employeeSalaryConfigs[selectedEmployee.id]}
+            onSave={handleSalaryConfigSave}
+            onCancel={() => {
+              setShowSalaryModal(false)
+              setSelectedEmployee(null)
+            }}
+            isLoading={salaryLoading}
           />
         )}
 

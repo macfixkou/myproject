@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Layout from '@/components/layout/Layout'
+import TraditionalPayslip from '@/components/salary/TraditionalPayslip'
 import { 
   BanknotesIcon,
   HomeIcon,
@@ -19,7 +20,8 @@ import {
   CheckIcon,
   PlusIcon,
   InformationCircleIcon,
-  CalendarDaysIcon
+  CalendarDaysIcon,
+  ReceiptPercentIcon
 } from '@heroicons/react/24/outline'
 
 // Export functions
@@ -76,10 +78,24 @@ export default function SalaryPage() {
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([])
   const [showDownloadMenu, setShowDownloadMenu] = useState(false)
+  const [showTraditionalPayslip, setShowTraditionalPayslip] = useState(false)
+  const [selectedEmployeeForPayslip, setSelectedEmployeeForPayslip] = useState<any>(null)
+  const [employeeSalaryConfigs, setEmployeeSalaryConfigs] = useState<{[key: string]: any}>({})
 
   useEffect(() => {
     setMounted(true)
+    loadEmployeeSalaryConfigs()
   }, [])
+
+  // 従業員の給与設定を読み込み
+  const loadEmployeeSalaryConfigs = () => {
+    try {
+      const configs = JSON.parse(localStorage.getItem('employeeSalaryConfigs') || '{}')
+      setEmployeeSalaryConfigs(configs)
+    } catch (error) {
+      console.error('Error loading salary configs:', error)
+    }
+  }
 
   const handleGoHome = () => {
     router.push('/home')
@@ -472,6 +488,18 @@ export default function SalaryPage() {
     if (detail) {
       setSelectedEmployee(detail)
       setShowDetailModal(true)
+    }
+  }
+
+  const handleTraditionalPayslipClick = (id: string) => {
+    const employeeData = sampleSalaryData.find(emp => emp.id === id)
+    const salaryConfig = employeeSalaryConfigs[id]
+    
+    if (employeeData) {
+      setSelectedEmployeeForPayslip(employeeData)
+      setShowTraditionalPayslip(true)
+    } else {
+      alert('この従業員の給与設定が見つかりません。従業員管理画面で給与設定を行ってください。')
     }
   }
 
@@ -916,6 +944,13 @@ export default function SalaryPage() {
                         >
                           <EyeIcon className="h-4 w-4" />
                         </button>
+                        <button
+                          onClick={() => handleTraditionalPayslipClick(employee.id)}
+                          className="text-purple-600 hover:text-purple-900"
+                          title="給料明細書"
+                        >
+                          <ReceiptPercentIcon className="h-4 w-4" />
+                        </button>
                         <div className="relative group">
                           <button
                             className="text-green-600 hover:text-green-900"
@@ -1215,6 +1250,18 @@ export default function SalaryPage() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* 伝統的な給料明細書モーダル */}
+        {showTraditionalPayslip && selectedEmployeeForPayslip && (
+          <TraditionalPayslip
+            employee={selectedEmployeeForPayslip}
+            salaryConfig={employeeSalaryConfigs[selectedEmployeeForPayslip.id]}
+            onClose={() => {
+              setShowTraditionalPayslip(false)
+              setSelectedEmployeeForPayslip(null)
+            }}
+          />
         )}
       </div>
     </Layout>
