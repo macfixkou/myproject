@@ -7,6 +7,7 @@ import Layout from '@/components/layout/Layout'
 import EmployeeLayout from '@/components/layout/EmployeeLayout'
 import EmployeeDashboard from '@/components/dashboard/EmployeeDashboard'
 import AdminDashboard from '@/components/dashboard/AdminDashboard'
+import ManagerDashboard from '@/components/dashboard/ManagerDashboard'
 
 export default function Home() {
   const { data: session, status } = useSession()
@@ -36,6 +37,16 @@ export default function Home() {
       <EmployeeLayout>
         <EmployeeDashboard user={session.user} />
       </EmployeeLayout>
+    )
+  }
+
+  if (session.user.role === 'MANAGER') {
+    return (
+      <Layout>
+        <div className="px-4 sm:px-6 lg:px-8 py-8">
+          <ManagerDashboard user={session.user} />
+        </div>
+      </Layout>
     )
   }
 
