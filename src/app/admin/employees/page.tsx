@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Layout from '@/components/layout/Layout'
+import AddEmployeeForm from '@/components/forms/AddEmployeeForm'
 import { 
   PlusIcon, 
   MagnifyingGlassIcon,
@@ -52,10 +53,78 @@ export default function EmployeesPage() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
+  const [employees, setEmployees] = useState<Employee[]>([])
+  const [loading, setLoading] = useState(false)
+  const [addEmployeeLoading, setAddEmployeeLoading] = useState(false)
+  const [refreshData, setRefreshData] = useState(false)
 
   useEffect(() => {
     setMounted(true)
-  }, [])
+    loadEmployees()
+  }, [refreshData])
+
+  // 従業員データの読み込み
+  const loadEmployees = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/employees', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setEmployees(data.employees || [])
+      } else {
+        console.error('Failed to load employees')
+        // フォールバックとしてサンプルデータを使用
+        setEmployees(sampleEmployees)
+      }
+    } catch (error) {
+      console.error('Error loading employees:', error)
+      // フォールバックとしてサンプルデータを使用
+      setEmployees(sampleEmployees)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // 従業員追加のハンドラ
+  const handleAddEmployee = async (employeeData: any) => {
+    try {
+      setAddEmployeeLoading(true)
+      
+      const response = await fetch('/api/employees', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(employeeData),
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        // 成功通知
+        alert(`従業員「${result.employee.name}」が正常に追加されました！`)
+        
+        // モーダルを閉じる
+        setShowAddModal(false)
+        
+        // データを再読み込み
+        setRefreshData(prev => !prev)
+      } else {
+        const error = await response.json()
+        throw new Error(error.error || '従業員の追加に失敗しました')
+      }
+    } catch (error) {
+      console.error('Error adding employee:', error)
+      throw error
+    } finally {
+      setAddEmployeeLoading(false)
+    }
+  }
 
   const handleGoHome = () => {
     router.push('/home')
@@ -141,8 +210,11 @@ export default function EmployeesPage() {
     }
   ]
 
+  // データソースを決定（API or サンプル）
+  const currentEmployees = employees.length > 0 ? employees : sampleEmployees
+
   // フィルタリング
-  const filteredEmployees = sampleEmployees.filter(employee => {
+  const filteredEmployees = currentEmployees.filter(employee => {
     const matchesSearch = employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          employee.email.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesDepartment = selectedDepartment === 'all' || employee.department === selectedDepartment
@@ -151,7 +223,7 @@ export default function EmployeesPage() {
     return matchesSearch && matchesDepartment && matchesRole
   })
 
-  const departments = ['all', ...Array.from(new Set(sampleEmployees.map(emp => emp.department)))]
+  const departments = ['all', ...Array.from(new Set(currentEmployees.map(emp => emp.department)))]
   const roles = ['all', 'ADMIN', 'MANAGER', 'EMPLOYEE']
 
   const getRoleLabel = (role: string) => {
@@ -255,7 +327,9 @@ export default function EmployeesPage() {
             <div className="flex items-center">
               <UsersIcon className="h-8 w-8 text-blue-600" />
               <div className="ml-4">
-                <p className="text-2xl font-bold text-gray-900">{sampleEmployees.length}</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {loading ? '...' : currentEmployees.length}
+                </p>
                 <p className="text-gray-600">総従業員数</p>
               </div>
             </div>
@@ -266,7 +340,7 @@ export default function EmployeesPage() {
               <CheckIcon className="h-8 w-8 text-green-600" />
               <div className="ml-4">
                 <p className="text-2xl font-bold text-gray-900">
-                  {sampleEmployees.filter(emp => emp.status === 'ACTIVE').length}
+                  {loading ? '...' : currentEmployees.filter(emp => emp.status === 'ACTIVE').length}
                 </p>
                 <p className="text-gray-600">アクティブ</p>
               </div>
@@ -278,7 +352,9 @@ export default function EmployeesPage() {
               <ClockIcon className="h-8 w-8 text-yellow-600" />
               <div className="ml-4">
                 <p className="text-2xl font-bold text-gray-900">
-                  {Math.round(sampleEmployees.reduce((sum, emp) => sum + emp.workHoursThisMonth, 0) / sampleEmployees.length)}
+                  {loading ? '...' : currentEmployees.length > 0 ? 
+                    Math.round(currentEmployees.reduce((sum, emp) => sum + (emp.workHoursThisMonth || 0), 0) / currentEmployees.length) 
+                    : 0}
                 </p>
                 <p className="text-gray-600">平均労働時間</p>
               </div>
@@ -563,41 +639,13 @@ export default function EmployeesPage() {
           </div>
         )}
 
-        {/* 新規追加モーダル */}
+        {/* 新規従業員追加フォーム */}
         {showAddModal && (
-          <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">新規従業員追加</h3>
-                <button
-                  onClick={() => setShowAddModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <XMarkIcon className="h-6 w-6" />
-                </button>
-              </div>
-              
-              <div className="text-center py-8">
-                <PlusIcon className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">新規追加機能</h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  この機能は現在開発中です。
-                </p>
-                <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                  <p className="text-sm text-blue-700">💡 従業員追加機能は実装中です</p>
-                </div>
-              </div>
-
-              <div className="mt-6 flex justify-end">
-                <button
-                  onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-                >
-                  閉じる
-                </button>
-              </div>
-            </div>
-          </div>
+          <AddEmployeeForm
+            onSubmit={handleAddEmployee}
+            onCancel={() => setShowAddModal(false)}
+            isLoading={addEmployeeLoading}
+          />
         )}
 
         {/* ユーザー情報 */}

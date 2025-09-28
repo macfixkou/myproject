@@ -67,22 +67,30 @@ model Company {
 
 // ユーザー（従業員・管理者）テーブル
 model User {
-  id             String    @id @default(cuid())
-  companyId      String
-  role           String    @default("EMPLOYEE") // ADMIN, MANAGER, EMPLOYEE
-  name           String
-  email          String    @unique
-  emailVerified  DateTime?
-  password       String?
-  phone          String?
-  hourlyWage     Float?
-  employmentType String?   // 雇用形態
-  active         Boolean   @default(true)
-  lastLoginAt    DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id               String    @id @default(cuid())
+  companyId        String?
+  role             String    @default("EMPLOYEE") // ADMIN, MANAGER, EMPLOYEE
+  name             String
+  email            String    @unique
+  emailVerified    DateTime?
+  password         String?
+  phone            String?
+  address          String?
+  position         String?   // 職位
+  department       String?   // 部署
+  hireDate         DateTime? // 入社日
+  hourlyWage       Float?
+  employmentType   String?   // 雇用形態
+  emergencyContact String?   // 緊急連絡先氏名
+  emergencyPhone   String?   // 緊急連絡先電話番号
+  notes            String?   // 備考
+  status           String    @default("ACTIVE") // ACTIVE, INACTIVE
+  active           Boolean   @default(true)
+  lastLoginAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  company    Company @relation(fields: [companyId], references: [id])
+  company    Company? @relation(fields: [companyId], references: [id])
   accounts   Account[]
   sessions   Session[]
   attendances Attendance[]
