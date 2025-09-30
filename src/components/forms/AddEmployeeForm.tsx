@@ -20,63 +20,137 @@ import {
   XMarkIcon
 } from '@heroicons/react/24/outline'
 
-// 従業員追加用のスキーマ
-const employeeFormSchema = z.object({
-  // 基本情報
-  name: z.string().min(1, '氏名は必須です').max(50, '氏名は50文字以内で入力してください'),
-  email: z.string().email('有効なメールアドレスを入力してください'),
-  phone: z.string()
-    .regex(/^[0-9-]+$/, '電話番号は数字とハイフンのみ使用できます')
-    .min(10, '電話番号を正しく入力してください'),
-  address: z.string().min(1, '住所は必須です').max(200, '住所は200文字以内で入力してください'),
-  
-  // 勤務情報
-  role: z.enum(['ADMIN', 'MANAGER', 'EMPLOYEE'], {
-    errorMap: () => ({ message: '役職を選択してください' })
-  }),
-  position: z.string().min(1, '職位は必須です').max(50, '職位は50文字以内で入力してください'),
-  department: z.string().min(1, '部署は必須です').max(50, '部署は50文字以内で入力してください'),
-  hireDate: z.string().min(1, '入社日は必須です'),
-  hourlyWage: z.number()
-    .min(800, '時給は800円以上で設定してください')
-    .max(10000, '時給は10,000円以下で設定してください'),
-  
-  // 緊急連絡先
-  emergencyContact: z.string().min(1, '緊急連絡先氏名は必須です').max(50, '緊急連絡先氏名は50文字以内で入力してください'),
-  emergencyPhone: z.string()
-    .regex(/^[0-9-]+$/, '緊急連絡先電話番号は数字とハイフンのみ使用できます')
-    .min(10, '緊急連絡先電話番号を正しく入力してください'),
-  
-  // アカウント設定
-  password: z.string()
-    .min(6, 'パスワードは6文字以上で入力してください')
-    .max(100, 'パスワードは100文字以内で入力してください'),
-  confirmPassword: z.string(),
-  
-  // その他
-  notes: z.string().max(500, '備考は500文字以内で入力してください').optional(),
-}).refine(
-  (data) => data.password === data.confirmPassword,
-  {
-    message: "パスワードが一致しません",
-    path: ["confirmPassword"],
-  }
-)
+// 従業員追加・編集用のスキーマを動的に作成
+const createEmployeeFormSchema = (isEdit: boolean) => {
+  const baseSchema = z.object({
+    // 基本情報
+    name: z.string().min(1, '氏名は必須です').max(50, '氏名は50文字以内で入力してください'),
+    email: z.string().email('有効なメールアドレスを入力してください'),
+    phone: z.string()
+      .regex(/^[0-9-]+$/, '電話番号は数字とハイフンのみ使用できます')
+      .min(10, '電話番号を正しく入力してください'),
+    address: z.string().min(1, '住所は必須です').max(200, '住所は200文字以内で入力してください'),
+    
+    // 勤務情報
+    role: z.enum(['ADMIN', 'MANAGER', 'EMPLOYEE'], {
+      errorMap: () => ({ message: '役職を選択してください' })
+    }),
+    position: z.string().min(1, '職位は必須です').max(50, '職位は50文字以内で入力してください'),
+    department: z.string().min(1, '部署は必須です').max(50, '部署は50文字以内で入力してください'),
+    hireDate: z.string().min(1, '入社日は必須です'),
+    hourlyWage: z.number()
+      .min(800, '時給は800円以上で設定してください')
+      .max(10000, '時給は10,000円以下で設定してください'),
+    
+    // 緊急連絡先
+    emergencyContact: z.string().min(1, '緊急連絡先氏名は必須です').max(50, '緊急連絡先氏名は50文字以内で入力してください'),
+    emergencyPhone: z.string()
+      .regex(/^[0-9-]+$/, '緊急連絡先電話番号は数字とハイフンのみ使用できます')
+      .min(10, '緊急連絡先電話番号を正しく入力してください'),
+    
+    // その他
+    notes: z.string().max(500, '備考は500文字以内で入力してください').optional(),
+  })
 
-type EmployeeFormData = z.infer<typeof employeeFormSchema>
+  // 編集モードの場合はパスワードをオプションに
+  if (isEdit) {
+    return baseSchema.extend({
+      password: z.string().optional(),
+      confirmPassword: z.string().optional(),
+    }).refine(
+      (data) => !data.password || data.password === data.confirmPassword,
+      {
+        message: "パスワードが一致しません",
+        path: ["confirmPassword"],
+      }
+    )
+  }
+
+  // 新規作成の場合はパスワード必須
+  return baseSchema.extend({
+    password: z.string()
+      .min(6, 'パスワードは6文字以上で入力してください')
+      .max(100, 'パスワードは100文字以内で入力してください'),
+    confirmPassword: z.string(),
+  }).refine(
+    (data) => data.password === data.confirmPassword,
+    {
+      message: "パスワードが一致しません",
+      path: ["confirmPassword"],
+    }
+  )
+}
+
+type EmployeeFormData = z.infer<ReturnType<typeof createEmployeeFormSchema>>
+
+interface Employee {
+  id: string
+  name: string
+  email: string
+  phone: string
+  role: 'ADMIN' | 'MANAGER' | 'EMPLOYEE'
+  position: string
+  department: string
+  hireDate: string
+  status: 'ACTIVE' | 'INACTIVE'
+  hourlyWage: number
+  address?: string
+  emergencyContact?: string
+  emergencyPhone?: string
+}
 
 interface AddEmployeeFormProps {
   onSubmit: (data: EmployeeFormData) => Promise<void>
   onCancel: () => void
   isLoading?: boolean
+  employee?: Employee
+  isEdit?: boolean
 }
 
-export default function AddEmployeeForm({ onSubmit, onCancel, isLoading = false }: AddEmployeeFormProps) {
+export default function AddEmployeeForm({ 
+  onSubmit, 
+  onCancel, 
+  isLoading = false, 
+  employee,
+  isEdit = false 
+}: AddEmployeeFormProps) {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [currentStep, setCurrentStep] = useState(1)
   const totalSteps = 3
+
+  const employeeFormSchema = createEmployeeFormSchema(isEdit)
+  
+  const getDefaultValues = () => {
+    const baseDefaults = {
+      role: 'EMPLOYEE' as const,
+      hireDate: new Date().toISOString().split('T')[0],
+      hourlyWage: 1000,
+    }
+
+    if (isEdit && employee) {
+      return {
+        ...baseDefaults,
+        name: employee.name,
+        email: employee.email,
+        phone: employee.phone,
+        address: employee.address || '',
+        role: employee.role,
+        position: employee.position,
+        department: employee.department,
+        hireDate: employee.hireDate,
+        hourlyWage: employee.hourlyWage,
+        emergencyContact: employee.emergencyContact || '',
+        emergencyPhone: employee.emergencyPhone || '',
+        password: '',
+        confirmPassword: '',
+        notes: '',
+      }
+    }
+
+    return baseDefaults
+  }
 
   const {
     register,
@@ -87,11 +161,7 @@ export default function AddEmployeeForm({ onSubmit, onCancel, isLoading = false 
   } = useForm<EmployeeFormData>({
     resolver: zodResolver(employeeFormSchema),
     mode: 'onChange',
-    defaultValues: {
-      role: 'EMPLOYEE',
-      hireDate: new Date().toISOString().split('T')[0],
-      hourlyWage: 1000,
-    }
+    defaultValues: getDefaultValues()
   })
 
   const watchRole = watch('role')
@@ -99,8 +169,8 @@ export default function AddEmployeeForm({ onSubmit, onCancel, isLoading = false 
   const handleFormSubmit = async (data: EmployeeFormData) => {
     setSubmitError(null)
     try {
-      // パスワード確認の最終チェック
-      if (data.password !== data.confirmPassword) {
+      // パスワード確認の最終チェック（新規作成時のみ）
+      if (!isEdit && data.password !== data.confirmPassword) {
         setSubmitError('パスワードが一致しません')
         return
       }
@@ -110,10 +180,21 @@ export default function AddEmployeeForm({ onSubmit, onCancel, isLoading = false 
       // confirmPasswordを除いたデータを送信
       const { confirmPassword, ...submitData } = data
       
+      // 編集モードの場合はIDを追加
+      if (isEdit && employee) {
+        (submitData as any).id = employee.id
+      }
+      
+      // パスワードが空の場合は削除（編集モード時）
+      if (isEdit && (!submitData.password || submitData.password.trim() === '')) {
+        delete submitData.password
+      }
+      
       await onSubmit(submitData)
     } catch (error) {
       console.error('Form submission error:', error)
-      const errorMessage = error instanceof Error ? error.message : '従業員の追加に失敗しました'
+      const errorMessage = error instanceof Error ? error.message : 
+        isEdit ? '従業員の更新に失敗しました' : '従業員の追加に失敗しました'
       setSubmitError(errorMessage)
     }
   }
@@ -160,7 +241,9 @@ export default function AddEmployeeForm({ onSubmit, onCancel, isLoading = false 
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <UserIcon className="h-6 w-6 text-white mr-3" />
-              <h3 className="text-xl font-semibold text-white">新規従業員追加</h3>
+              <h3 className="text-xl font-semibold text-white">
+                {isEdit ? '従業員情報編集' : '新規従業員追加'}
+              </h3>
             </div>
             <button
               onClick={onCancel}
@@ -457,18 +540,20 @@ export default function AddEmployeeForm({ onSubmit, onCancel, isLoading = false 
 
                 {/* パスワード設定 */}
                 <div>
-                  <h5 className="text-md font-medium text-gray-900 mb-4">ログインパスワード設定</h5>
+                  <h5 className="text-md font-medium text-gray-900 mb-4">
+                    ログインパスワード設定 {isEdit && <span className="text-sm font-normal text-gray-600">(変更する場合のみ入力)</span>}
+                  </h5>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        パスワード <span className="text-red-500">*</span>
+                        パスワード {!isEdit && <span className="text-red-500">*</span>}
                       </label>
                       <div className="relative">
                         <input
                           type={showPassword ? 'text' : 'password'}
                           {...register('password')}
                           className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-3 pr-10"
-                          placeholder="6文字以上"
+                          placeholder={isEdit ? "新しいパスワード（変更しない場合は空白）" : "6文字以上"}
                         />
                         <button
                           type="button"
@@ -489,14 +574,14 @@ export default function AddEmployeeForm({ onSubmit, onCancel, isLoading = false 
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        パスワード確認 <span className="text-red-500">*</span>
+                        パスワード確認 {!isEdit && <span className="text-red-500">*</span>}
                       </label>
                       <div className="relative">
                         <input
                           type={showConfirmPassword ? 'text' : 'password'}
                           {...register('confirmPassword')}
                           className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-3 pr-10"
-                          placeholder="上記と同じパスワード"
+                          placeholder={isEdit ? "上記と同じパスワード" : "上記と同じパスワード"}
                         />
                         <button
                           type="button"
@@ -515,6 +600,11 @@ export default function AddEmployeeForm({ onSubmit, onCancel, isLoading = false 
                       )}
                     </div>
                   </div>
+                  {isEdit && (
+                    <p className="text-sm text-gray-600 mt-2">
+                      パスワードを変更しない場合は、両方のフィールドを空白にしてください。
+                    </p>
+                  )}
                 </div>
 
                 {/* 備考 */}
@@ -581,7 +671,7 @@ export default function AddEmployeeForm({ onSubmit, onCancel, isLoading = false 
                   {isLoading && (
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                   )}
-                  従業員を追加
+                  {isEdit ? '従業員情報を更新' : '従業員を追加'}
                 </button>
               )}
             </div>

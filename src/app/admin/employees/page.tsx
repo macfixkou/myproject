@@ -55,10 +55,12 @@ export default function EmployeesPage() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
   const [showSalaryModal, setShowSalaryModal] = useState(false)
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(false)
   const [addEmployeeLoading, setAddEmployeeLoading] = useState(false)
+  const [editEmployeeLoading, setEditEmployeeLoading] = useState(false)
   const [salaryLoading, setSalaryLoading] = useState(false)
   const [refreshData, setRefreshData] = useState(false)
   const [employeeSalaryConfigs, setEmployeeSalaryConfigs] = useState<{[key: string]: any}>({})
@@ -138,6 +140,70 @@ export default function EmployeesPage() {
     }
   }
 
+  // 従業員編集のハンドラ
+  const handleEditEmployee = async (employeeData: any) => {
+    try {
+      setEditEmployeeLoading(true)
+      
+      console.log('Updating employee data:', employeeData)
+      
+      // サンプルデータの場合はローカルで更新
+      if (employees.length === 0) {
+        // ローカルストレージから既存データを取得
+        const existingEmployees = JSON.parse(localStorage.getItem('employees') || '[]')
+        let updatedEmployees = existingEmployees.length > 0 ? existingEmployees : sampleEmployees
+        
+        // 該当する従業員を更新
+        const updatedList = updatedEmployees.map((emp: Employee) => 
+          emp.id === employeeData.id ? { ...emp, ...employeeData } : emp
+        )
+        
+        // ローカルストレージに保存
+        localStorage.setItem('employees', JSON.stringify(updatedList))
+        setEmployees(updatedList)
+        
+        alert(`従業員「${employeeData.name}」の情報を更新しました！`)
+        setShowEditModal(false)
+        setSelectedEmployee(null)
+        setRefreshData(prev => !prev)
+        return
+      }
+      
+      // API経由での更新
+      const response = await fetch(`/api/employees/${employeeData.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(employeeData),
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        console.log('API Success response:', result)
+        
+        // 成功通知
+        alert(`従業員「${result.employee.name}」の情報を更新しました！`)
+        
+        // モーダルを閉じる
+        setShowEditModal(false)
+        setSelectedEmployee(null)
+        
+        // データを再読み込み
+        setRefreshData(prev => !prev)
+      } else {
+        const error = await response.json()
+        console.error('API Error response:', error)
+        throw new Error(error.error || '従業員の更新に失敗しました')
+      }
+    } catch (error) {
+      console.error('Error updating employee:', error)
+      throw error
+    } finally {
+      setEditEmployeeLoading(false)
+    }
+  }
+
   const handleGoHome = () => {
     router.push('/home')
   }
@@ -182,6 +248,18 @@ export default function EmployeesPage() {
   // 初期化時に給与設定を読み込み
   useEffect(() => {
     loadSalaryConfigs()
+    // ローカルストレージから従業員データを読み込み
+    const savedEmployees = localStorage.getItem('employees')
+    if (savedEmployees) {
+      try {
+        const parsedEmployees = JSON.parse(savedEmployees)
+        if (parsedEmployees.length > 0) {
+          setEmployees(parsedEmployees)
+        }
+      } catch (error) {
+        console.error('Error loading saved employees:', error)
+      }
+    }
   }, [])
 
   // サンプル従業員データ
@@ -563,6 +641,10 @@ export default function EmployeesPage() {
                           <EyeIcon className="h-4 w-4" />
                         </button>
                         <button 
+                          onClick={() => {
+                            setSelectedEmployee(employee)
+                            setShowEditModal(true)
+                          }}
                           className="text-green-600 hover:text-green-900"
                           title="編集"
                         >
@@ -702,7 +784,13 @@ export default function EmployeesPage() {
                 >
                   閉じる
                 </button>
-                <button className="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+                <button 
+                  onClick={() => {
+                    setShowDetailModal(false)
+                    setShowEditModal(true)
+                  }}
+                  className="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+                >
                   編集
                 </button>
               </div>
@@ -716,6 +804,20 @@ export default function EmployeesPage() {
             onSubmit={handleAddEmployee}
             onCancel={() => setShowAddModal(false)}
             isLoading={addEmployeeLoading}
+          />
+        )}
+
+        {/* 従業員編集フォーム */}
+        {showEditModal && selectedEmployee && (
+          <AddEmployeeForm
+            employee={selectedEmployee}
+            onSubmit={handleEditEmployee}
+            onCancel={() => {
+              setShowEditModal(false)
+              setSelectedEmployee(null)
+            }}
+            isLoading={editEmployeeLoading}
+            isEdit={true}
           />
         )}
 
