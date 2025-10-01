@@ -9,8 +9,15 @@ import {
   HomeIcon,
   UserIcon,
   ClockIcon,
-  CurrencyYenIcon
+  CurrencyYenIcon,
+  DocumentArrowDownIcon,
+  DocumentIcon,
+  TableCellsIcon,
+  EyeIcon
 } from '@heroicons/react/24/outline'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
+import * as XLSX from 'xlsx'
 
 export default function SalaryPage() {
   const { data: session, status } = useSession()
@@ -23,6 +30,258 @@ export default function SalaryPage() {
 
   const handleGoHome = () => {
     router.push('/home')
+  }
+
+  // PDF生成機能
+  const generatePDF = (employee?: any) => {
+    const doc = new jsPDF()
+    
+    if (employee) {
+      // 個別の給与明細PDF
+      doc.setFontSize(16)
+      doc.text('給与明細書', 105, 20, { align: 'center' })
+      
+      doc.setFontSize(12)
+      doc.text(`2024年9月分`, 20, 35)
+      doc.text(`サンプル建設会社`, 140, 35)
+      doc.text(`氏名：${employee.employeeName}`, 140, 45)
+      doc.text(`部署：${employee.department}`, 140, 55)
+
+      // 詳細なサンプル給与データ
+      const detailData = getDetailedSalaryData(employee.id)
+      
+      // 勤務データテーブル
+      const workData = [
+        ['出勤日数', `${employee.workDays}日`],
+        ['総労働時間', `${employee.totalHours}時間`],
+        ['残業時間', `${employee.overtimeHours}時間`],
+        ['深夜労働', `${detailData?.nightHours || 0}時間`],
+        ['休日労働', `${detailData?.holidayHours || 0}時間`]
+      ]
+
+      autoTable(doc, {
+        head: [['勤務項目', '時間/日数']],
+        body: workData,
+        startY: 70,
+        margin: { left: 20 },
+        tableWidth: 50
+      })
+
+      // 支給項目テーブル
+      const allowanceData = [
+        ['基本給', `¥${employee.baseSalary.toLocaleString()}`],
+        ['残業手当', `¥${employee.overtimePay.toLocaleString()}`],
+        ['深夜手当', `¥${detailData?.nightPay || 0}`],
+        ['交通費', `¥${detailData?.allowances?.transportation || 15000}`],
+        ['食事手当', `¥${detailData?.allowances?.meal || 8000}`],
+        ['家族手当', `¥${detailData?.allowances?.family || 20000}`]
+      ]
+
+      const totalGross = employee.baseSalary + employee.overtimePay + (detailData?.nightPay || 0) + 
+                        (detailData?.allowances?.transportation || 15000) +
+                        (detailData?.allowances?.meal || 8000) +
+                        (detailData?.allowances?.family || 20000)
+      
+      allowanceData.push(['支給合計', `¥${totalGross.toLocaleString()}`])
+
+      autoTable(doc, {
+        head: [['支給項目', '金額']],
+        body: allowanceData,
+        startY: 70,
+        margin: { left: 80 },
+        tableWidth: 50
+      })
+
+      // 控除項目テーブル
+      const deductionData = [
+        ['健康保険', `¥${detailData?.deductions?.healthInsurance || 12250}`],
+        ['厚生年金保険', `¥${detailData?.deductions?.pensionInsurance || 22950}`],
+        ['雇用保険', `¥${detailData?.deductions?.employmentInsurance || 1683}`],
+        ['所得税', `¥${detailData?.deductions?.incomeTax || 8500}`],
+        ['住民税', `¥${detailData?.deductions?.residentTax || 12000}`]
+      ]
+
+      const totalDeductions = (detailData?.deductions?.healthInsurance || 12250) +
+                             (detailData?.deductions?.pensionInsurance || 22950) +
+                             (detailData?.deductions?.employmentInsurance || 1683) +
+                             (detailData?.deductions?.incomeTax || 8500) +
+                             (detailData?.deductions?.residentTax || 12000)
+
+      deductionData.push(['控除合計', `¥${totalDeductions.toLocaleString()}`])
+
+      autoTable(doc, {
+        head: [['控除項目', '金額']],
+        body: deductionData,
+        startY: 70,
+        margin: { left: 140 },
+        tableWidth: 50
+      })
+
+      // 差引支給額
+      const netSalary = totalGross - totalDeductions
+      const finalY = Math.max((doc as any).lastAutoTable?.finalY || 150, 150)
+
+      doc.setFontSize(14)
+      doc.text('差引支給額', 20, finalY + 20)
+      doc.setFontSize(18)
+      doc.text(`¥${netSalary.toLocaleString()}`, 60, finalY + 20)
+
+      doc.save(`給与明細_${employee.employeeName}_${new Date().toISOString().split('T')[0]}.pdf`)
+    } else {
+      // 給与一覧PDF
+      doc.setFontSize(16)
+      doc.text('給与計算一覧表', 105, 20, { align: 'center' })
+      
+      doc.setFontSize(12)
+      doc.text('2024年9月分', 20, 35)
+      doc.text(`作成日：${new Date().toLocaleDateString('ja-JP')}`, 140, 35)
+
+      const tableData = sampleSalaryData.map(emp => [
+        emp.employeeName,
+        emp.department,
+        `${emp.workDays}日`,
+        `${emp.totalHours}時間`,
+        `${emp.overtimeHours}時間`,
+        `¥${emp.baseSalary.toLocaleString()}`,
+        `¥${emp.overtimePay.toLocaleString()}`,
+        `¥${emp.totalSalary.toLocaleString()}`,
+        emp.status
+      ])
+
+      autoTable(doc, {
+        head: [['従業員名', '部署', '出勤日数', '総労働時間', '残業時間', '基本給', '残業代', '総支給額', 'ステータス']],
+        body: tableData,
+        startY: 50,
+        styles: { fontSize: 9, cellPadding: 2 },
+        headStyles: { fillColor: [200, 220, 255] }
+      })
+
+      doc.save(`給与計算一覧_${new Date().toISOString().split('T')[0]}.pdf`)
+    }
+  }
+
+  // Excel生成機能
+  const generateExcel = (employee?: any) => {
+    const wb = XLSX.utils.book_new()
+
+    if (employee) {
+      // 個別の給与明細Excel
+      const detailData = getDetailedSalaryData(employee.id)
+      
+      const worksheetData = [
+        ['給与明細書', '', '', ''],
+        ['対象期間', '2024年9月分', '', ''],
+        ['従業員名', employee.employeeName, '部署', employee.department],
+        ['', '', '', ''],
+        ['勤務項目', '', '', ''],
+        ['出勤日数', `${employee.workDays}日`, '', ''],
+        ['総労働時間', `${employee.totalHours}時間`, '', ''],
+        ['残業時間', `${employee.overtimeHours}時間`, '', ''],
+        ['深夜労働', `${detailData?.nightHours || 0}時間`, '', ''],
+        ['休日労働', `${detailData?.holidayHours || 0}時間`, '', ''],
+        ['', '', '', ''],
+        ['支給項目', '金額', '', ''],
+        ['基本給', employee.baseSalary, '', ''],
+        ['残業手当', employee.overtimePay, '', ''],
+        ['深夜手当', detailData?.nightPay || 0, '', ''],
+        ['交通費', detailData?.allowances?.transportation || 15000, '', ''],
+        ['食事手当', detailData?.allowances?.meal || 8000, '', ''],
+        ['家族手当', detailData?.allowances?.family || 20000, '', ''],
+        ['', '', '', ''],
+        ['控除項目', '金額', '', ''],
+        ['健康保険', detailData?.deductions?.healthInsurance || 12250, '', ''],
+        ['厚生年金保険', detailData?.deductions?.pensionInsurance || 22950, '', ''],
+        ['雇用保険', detailData?.deductions?.employmentInsurance || 1683, '', ''],
+        ['所得税', detailData?.deductions?.incomeTax || 8500, '', ''],
+        ['住民税', detailData?.deductions?.residentTax || 12000, '', '']
+      ]
+
+      const ws = XLSX.utils.aoa_to_sheet(worksheetData)
+      XLSX.utils.book_append_sheet(wb, ws, '給与明細')
+      XLSX.writeFile(wb, `給与明細_${employee.employeeName}_${new Date().toISOString().split('T')[0]}.xlsx`)
+    } else {
+      // 給与一覧Excel
+      const worksheetData = [
+        ['給与計算一覧表', '', '', '', '', '', '', '', ''],
+        ['対象期間', '2024年9月分', '', '', '', '', '', '', ''],
+        ['作成日', new Date().toLocaleDateString('ja-JP'), '', '', '', '', '', '', ''],
+        ['', '', '', '', '', '', '', '', ''],
+        ['従業員名', '部署', '出勤日数', '総労働時間', '残業時間', '基本給', '残業代', '総支給額', 'ステータス'],
+        ...sampleSalaryData.map(emp => [
+          emp.employeeName,
+          emp.department,
+          emp.workDays,
+          emp.totalHours,
+          emp.overtimeHours,
+          emp.baseSalary,
+          emp.overtimePay,
+          emp.totalSalary,
+          emp.status
+        ])
+      ]
+
+      const ws = XLSX.utils.aoa_to_sheet(worksheetData)
+      XLSX.utils.book_append_sheet(wb, ws, '給与計算一覧')
+      XLSX.writeFile(wb, `給与計算一覧_${new Date().toISOString().split('T')[0]}.xlsx`)
+    }
+  }
+
+  // 詳細給与データ取得（サンプル）
+  const getDetailedSalaryData = (employeeId: string) => {
+    const detailData: any = {
+      '1': {
+        nightHours: 8,
+        holidayHours: 0,
+        nightPay: 12000,
+        allowances: {
+          transportation: 15000,
+          meal: 8000,
+          family: 20000
+        },
+        deductions: {
+          healthInsurance: 12250,
+          pensionInsurance: 22950,
+          employmentInsurance: 1683,
+          incomeTax: 8500,
+          residentTax: 12000
+        }
+      },
+      '2': {
+        nightHours: 4,
+        holidayHours: 0,
+        nightPay: 6000,
+        allowances: {
+          transportation: 12000,
+          meal: 6000,
+          family: 15000
+        },
+        deductions: {
+          healthInsurance: 11500,
+          pensionInsurance: 20700,
+          employmentInsurance: 1359,
+          incomeTax: 6800,
+          residentTax: 9500
+        }
+      },
+      '3': {
+        nightHours: 12,
+        holidayHours: 8,
+        nightPay: 18000,
+        allowances: {
+          transportation: 18000,
+          meal: 10000,
+          family: 30000
+        },
+        deductions: {
+          healthInsurance: 17625,
+          pensionInsurance: 31005,
+          employmentInsurance: 2007,
+          incomeTax: 15200,
+          residentTax: 18000
+        }
+      }
+    }
+    return detailData[employeeId] || detailData['1']
   }
 
   // サンプル給与データ
@@ -160,8 +419,28 @@ export default function SalaryPage() {
         {/* 給与リスト */}
         <div className="bg-white shadow-md rounded-lg overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-900">給与計算一覧</h2>
-            <p className="text-sm text-gray-600 mt-1">2024年9月分の給与計算結果</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">給与計算一覧</h2>
+                <p className="text-sm text-gray-600 mt-1">2024年9月分の給与計算結果</p>
+              </div>
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => generatePDF()}
+                  className="inline-flex items-center px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
+                >
+                  <DocumentIcon className="h-4 w-4 mr-2" />
+                  PDF出力
+                </button>
+                <button
+                  onClick={() => generateExcel()}
+                  className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
+                >
+                  <TableCellsIcon className="h-4 w-4 mr-2" />
+                  Excel出力
+                </button>
+              </div>
+            </div>
           </div>
           
           <div className="overflow-x-auto">
@@ -176,6 +455,7 @@ export default function SalaryPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">残業代</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">総支給額</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ステータス</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -213,6 +493,24 @@ export default function SalaryPage() {
                       }`}>
                         {employee.status}
                       </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => generatePDF(employee)}
+                          className="text-red-600 hover:text-red-900 p-1 rounded-md hover:bg-red-50"
+                          title="個別PDF出力"
+                        >
+                          <DocumentIcon className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => generateExcel(employee)}
+                          className="text-green-600 hover:text-green-900 p-1 rounded-md hover:bg-green-50"
+                          title="個別Excel出力"
+                        >
+                          <TableCellsIcon className="h-4 w-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
