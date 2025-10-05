@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Layout from '@/components/layout/Layout'
+import AddEmployeeForm, { Employee as FormEmployee } from '@/components/forms/AddEmployeeForm'
+import toast from 'react-hot-toast'
 import { 
   PlusIcon, 
   MagnifyingGlassIcon,
@@ -52,9 +54,14 @@ export default function EmployeesPage() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null)
+  const [employees, setEmployees] = useState<Employee[]>([])  // 状態管理用
 
   useEffect(() => {
     setMounted(true)
+    // 初期データを状態に設定
+    setEmployees(sampleEmployees)
   }, [])
 
   const handleGoHome = () => {
@@ -141,8 +148,86 @@ export default function EmployeesPage() {
     }
   ]
 
+  // 従業員データ処理関数
+  const handleAddEmployee = async (data: any) => {
+    try {
+      // 新しい従業員にIDを生成
+      const newEmployee: Employee = {
+        ...data,
+        id: `emp-${Date.now()}`,
+        workHoursThisMonth: 0,
+        overtimeHours: 0,
+        lastPunchIn: undefined
+      }
+      
+      // 状態を更新
+      setEmployees(prev => [...prev, newEmployee])
+      
+      // ローカルストレージにも保存（実際のAPIの代わり）
+      const storedEmployees = localStorage.getItem('construction_employees')
+      const currentEmployees = storedEmployees ? JSON.parse(storedEmployees) : employees
+      const updatedEmployees = [...currentEmployees, newEmployee]
+      localStorage.setItem('construction_employees', JSON.stringify(updatedEmployees))
+      
+      toast.success('従業員を追加しました')
+    } catch (error) {
+      console.error('Add employee error:', error)
+      throw error
+    }
+  }
+
+  const handleEditEmployee = async (data: any) => {
+    try {
+      // 従業員情報を更新
+      const updatedEmployees = employees.map(emp => 
+        emp.id === data.id ? { ...emp, ...data } : emp
+      )
+      
+      setEmployees(updatedEmployees)
+      
+      // ローカルストレージも更新
+      localStorage.setItem('construction_employees', JSON.stringify(updatedEmployees))
+      
+      toast.success('従業員情報を更新しました')
+      
+      // 編集モーダルを閉じる
+      setShowEditModal(false)
+      setEditingEmployee(null)
+    } catch (error) {
+      console.error('Edit employee error:', error)
+      throw error
+    }
+  }
+
+  const handleDeleteEmployee = (employeeId: string) => {
+    if (window.confirm('この従業員を削除しますか？')) {
+      const updatedEmployees = employees.filter(emp => emp.id !== employeeId)
+      setEmployees(updatedEmployees)
+      
+      // ローカルストレージも更新
+      localStorage.setItem('construction_employees', JSON.stringify(updatedEmployees))
+      
+      toast.success('従業員を削除しました')
+    }
+  }
+
+  // テーブルから編集ボタンを押した時の処理
+  const handleEditClick = (employee: Employee) => {
+    setEditingEmployee(employee)
+    setShowEditModal(true)
+  }
+
+  // 詳細モーダルから編集ボタンを押した時の処理
+  const handleEditFromDetail = () => {
+    if (selectedEmployee) {
+      setEditingEmployee(selectedEmployee)
+      setShowEditModal(true)
+      setShowDetailModal(false)  // 詳細モーダルを閉じる
+    }
+  }
+
   // フィルタリング
-  const filteredEmployees = sampleEmployees.filter(employee => {
+  const filteredEmployees = employees.filter(employee => {
     const matchesSearch = employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          employee.email.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesDepartment = selectedDepartment === 'all' || employee.department === selectedDepartment
@@ -151,7 +236,7 @@ export default function EmployeesPage() {
     return matchesSearch && matchesDepartment && matchesRole
   })
 
-  const departments = ['all', ...Array.from(new Set(sampleEmployees.map(emp => emp.department)))]
+  const departments = ['all', ...Array.from(new Set(employees.map(emp => emp.department)))]
   const roles = ['all', 'ADMIN', 'MANAGER', 'EMPLOYEE']
 
   const getRoleLabel = (role: string) => {
@@ -255,7 +340,7 @@ export default function EmployeesPage() {
             <div className="flex items-center">
               <UsersIcon className="h-8 w-8 text-blue-600" />
               <div className="ml-4">
-                <p className="text-2xl font-bold text-gray-900">{sampleEmployees.length}</p>
+                <p className="text-2xl font-bold text-gray-900">{employees.length}</p>
                 <p className="text-gray-600">総従業員数</p>
               </div>
             </div>
@@ -266,7 +351,7 @@ export default function EmployeesPage() {
               <CheckIcon className="h-8 w-8 text-green-600" />
               <div className="ml-4">
                 <p className="text-2xl font-bold text-gray-900">
-                  {sampleEmployees.filter(emp => emp.status === 'ACTIVE').length}
+                  {employees.filter(emp => emp.status === 'ACTIVE').length}
                 </p>
                 <p className="text-gray-600">アクティブ</p>
               </div>
@@ -278,7 +363,7 @@ export default function EmployeesPage() {
               <ClockIcon className="h-8 w-8 text-yellow-600" />
               <div className="ml-4">
                 <p className="text-2xl font-bold text-gray-900">
-                  {Math.round(sampleEmployees.reduce((sum, emp) => sum + emp.workHoursThisMonth, 0) / sampleEmployees.length)}
+                  {employees.length > 0 ? Math.round(employees.reduce((sum, emp) => sum + emp.workHoursThisMonth, 0) / employees.length) : 0}
                 </p>
                 <p className="text-gray-600">平均労働時間</p>
               </div>
@@ -431,10 +516,18 @@ export default function EmployeesPage() {
                         >
                           <EyeIcon className="h-4 w-4" />
                         </button>
-                        <button className="text-green-600 hover:text-green-900">
+                        <button 
+                          onClick={() => handleEditClick(employee)}
+                          className="text-green-600 hover:text-green-900"
+                          title="編集"
+                        >
                           <PencilIcon className="h-4 w-4" />
                         </button>
-                        <button className="text-red-600 hover:text-red-900">
+                        <button 
+                          onClick={() => handleDeleteEmployee(employee.id)}
+                          className="text-red-600 hover:text-red-900"
+                          title="削除"
+                        >
                           <TrashIcon className="h-4 w-4" />
                         </button>
                       </div>
@@ -555,7 +648,10 @@ export default function EmployeesPage() {
                 >
                   閉じる
                 </button>
-                <button className="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+                <button 
+                  onClick={handleEditFromDetail}
+                  className="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+                >
                   編集
                 </button>
               </div>
@@ -563,42 +659,25 @@ export default function EmployeesPage() {
           </div>
         )}
 
-        {/* 新規追加モーダル */}
-        {showAddModal && (
-          <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">新規従業員追加</h3>
-                <button
-                  onClick={() => setShowAddModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <XMarkIcon className="h-6 w-6" />
-                </button>
-              </div>
-              
-              <div className="text-center py-8">
-                <PlusIcon className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">新規追加機能</h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  この機能は現在開発中です。
-                </p>
-                <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                  <p className="text-sm text-blue-700">💡 従業員追加機能は実装中です</p>
-                </div>
-              </div>
+        {/* 新規追加・編集フォーム */}
+        <AddEmployeeForm
+          isOpen={showAddModal}
+          onClose={() => setShowAddModal(false)}
+          onSubmit={handleAddEmployee}
+          isEditMode={false}
+        />
 
-              <div className="mt-6 flex justify-end">
-                <button
-                  onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-                >
-                  閉じる
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* 編集フォーム */}
+        <AddEmployeeForm
+          isOpen={showEditModal}
+          onClose={() => {
+            setShowEditModal(false)
+            setEditingEmployee(null)
+          }}
+          onSubmit={handleEditEmployee}
+          employee={editingEmployee}
+          isEditMode={true}
+        />
 
         {/* ユーザー情報 */}
         {session?.user && (
