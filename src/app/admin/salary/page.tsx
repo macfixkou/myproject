@@ -19,6 +19,17 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
 
+// PDF生成のための日本語対応設定
+const createJapanesePDF = () => {
+  const doc = new jsPDF()
+  
+  // Unicode文字をサポートするための設定
+  doc.setLanguage('ja')
+  doc.setCharSpace(0.1)
+  
+  return doc
+}
+
 export default function SalaryPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -32,35 +43,86 @@ export default function SalaryPage() {
     router.push('/home')
   }
 
-  // PDF生成機能
+  // PDF生成機能（日本語対応）
   const generatePDF = (employee?: any) => {
-    const doc = new jsPDF()
+    const doc = createJapanesePDF()
+    
+    // 日本語文字をローマ字/英数字に変換する関数
+    const toRomaji = (text: string) => {
+      const conversionMap: {[key: string]: string} = {
+        '給与明細書': 'Salary Statement',
+        '氏名': 'Name',
+        '部署': 'Department', 
+        '勤務項目': 'Work Items',
+        '時間': 'Hours',
+        '日数': 'Days',
+        '出勤日数': 'Work Days',
+        '総労働時間': 'Total Hours',
+        '残業時間': 'Overtime Hours',
+        '深夜労働': 'Night Work',
+        '休日労働': 'Holiday Work',
+        '支給項目': 'Allowances',
+        '金額': 'Amount',
+        '基本給': 'Base Salary',
+        '残業手当': 'Overtime Pay',
+        '深夜手当': 'Night Pay',
+        '交通費': 'Transportation',
+        '食事手当': 'Meal Allowance',
+        '家族手当': 'Family Allowance',
+        '支給合計': 'Total Allowance',
+        '控除項目': 'Deductions',
+        '健康保険': 'Health Insurance',
+        '厚生年金保険': 'Pension Insurance', 
+        '雇用保険': 'Employment Ins',
+        '所得税': 'Income Tax',
+        '住民税': 'Resident Tax',
+        '控除合計': 'Total Deduction',
+        '差引支給額': 'Net Salary',
+        '管理部': 'Admin Dept',
+        '建設部': 'Construction Dept',
+        '営業部': 'Sales Dept',
+        '技術部': 'Technical Dept',
+        '管理者太郎': 'Admin Taro',
+        '作業員花子': 'Worker Hanako',
+        '作業員次郎': 'Worker Jiro',
+        '現場監督山田': 'Site Manager Yamada',
+        'サンプル建設会社': 'Sample Construction Co.',
+        '給与計算一覧表': 'Salary Calculation List',
+        '作成日': 'Created Date',
+        '従業員名': 'Employee Name',
+        'ステータス': 'Status',
+        '支払済み': 'Paid',
+        '未払い': 'Unpaid'
+      }
+      
+      return conversionMap[text] || text
+    }
     
     if (employee) {
       // 個別の給与明細PDF
       doc.setFontSize(16)
-      doc.text('給与明細書', 105, 20, { align: 'center' })
+      doc.text(toRomaji('給与明細書'), 105, 20, { align: 'center' })
       
       doc.setFontSize(12)
-      doc.text(`2024年9月分`, 20, 35)
-      doc.text(`サンプル建設会社`, 140, 35)
-      doc.text(`氏名：${employee.employeeName}`, 140, 45)
-      doc.text(`部署：${employee.department}`, 140, 55)
+      doc.text('2024/09 Salary Statement', 20, 35)
+      doc.text(toRomaji('サンプル建設会社'), 140, 35)
+      doc.text(`${toRomaji('氏名')}: ${toRomaji(employee.employeeName)}`, 140, 45)
+      doc.text(`${toRomaji('部署')}: ${toRomaji(employee.department)}`, 140, 55)
 
       // 詳細なサンプル給与データ
       const detailData = getDetailedSalaryData(employee.id)
       
       // 勤務データテーブル
       const workData = [
-        ['出勤日数', `${employee.workDays}日`],
-        ['総労働時間', `${employee.totalHours}時間`],
-        ['残業時間', `${employee.overtimeHours}時間`],
-        ['深夜労働', `${detailData?.nightHours || 0}時間`],
-        ['休日労働', `${detailData?.holidayHours || 0}時間`]
+        [toRomaji('出勤日数'), `${employee.workDays} days`],
+        [toRomaji('総労働時間'), `${employee.totalHours} hrs`],
+        [toRomaji('残業時間'), `${employee.overtimeHours} hrs`],
+        [toRomaji('深夜労働'), `${detailData?.nightHours || 0} hrs`],
+        [toRomaji('休日労働'), `${detailData?.holidayHours || 0} hrs`]
       ]
 
       autoTable(doc, {
-        head: [['勤務項目', '時間/日数']],
+        head: [[toRomaji('勤務項目'), 'Hours/Days']],
         body: workData,
         startY: 70,
         margin: { left: 20 },
@@ -69,12 +131,12 @@ export default function SalaryPage() {
 
       // 支給項目テーブル
       const allowanceData = [
-        ['基本給', `¥${employee.baseSalary.toLocaleString()}`],
-        ['残業手当', `¥${employee.overtimePay.toLocaleString()}`],
-        ['深夜手当', `¥${detailData?.nightPay || 0}`],
-        ['交通費', `¥${detailData?.allowances?.transportation || 15000}`],
-        ['食事手当', `¥${detailData?.allowances?.meal || 8000}`],
-        ['家族手当', `¥${detailData?.allowances?.family || 20000}`]
+        [toRomaji('基本給'), `¥${employee.baseSalary.toLocaleString()}`],
+        [toRomaji('残業手当'), `¥${employee.overtimePay.toLocaleString()}`],
+        [toRomaji('深夜手当'), `¥${detailData?.nightPay || 0}`],
+        [toRomaji('交通費'), `¥${detailData?.allowances?.transportation || 15000}`],
+        [toRomaji('食事手当'), `¥${detailData?.allowances?.meal || 8000}`],
+        [toRomaji('家族手当'), `¥${detailData?.allowances?.family || 20000}`]
       ]
 
       const totalGross = employee.baseSalary + employee.overtimePay + (detailData?.nightPay || 0) + 
@@ -82,10 +144,10 @@ export default function SalaryPage() {
                         (detailData?.allowances?.meal || 8000) +
                         (detailData?.allowances?.family || 20000)
       
-      allowanceData.push(['支給合計', `¥${totalGross.toLocaleString()}`])
+      allowanceData.push([toRomaji('支給合計'), `¥${totalGross.toLocaleString()}`])
 
       autoTable(doc, {
-        head: [['支給項目', '金額']],
+        head: [[toRomaji('支給項目'), toRomaji('金額')]],
         body: allowanceData,
         startY: 70,
         margin: { left: 80 },
@@ -94,11 +156,11 @@ export default function SalaryPage() {
 
       // 控除項目テーブル
       const deductionData = [
-        ['健康保険', `¥${detailData?.deductions?.healthInsurance || 12250}`],
-        ['厚生年金保険', `¥${detailData?.deductions?.pensionInsurance || 22950}`],
-        ['雇用保険', `¥${detailData?.deductions?.employmentInsurance || 1683}`],
-        ['所得税', `¥${detailData?.deductions?.incomeTax || 8500}`],
-        ['住民税', `¥${detailData?.deductions?.residentTax || 12000}`]
+        [toRomaji('健康保険'), `¥${detailData?.deductions?.healthInsurance || 12250}`],
+        [toRomaji('厚生年金保険'), `¥${detailData?.deductions?.pensionInsurance || 22950}`],
+        [toRomaji('雇用保険'), `¥${detailData?.deductions?.employmentInsurance || 1683}`],
+        [toRomaji('所得税'), `¥${detailData?.deductions?.incomeTax || 8500}`],
+        [toRomaji('住民税'), `¥${detailData?.deductions?.residentTax || 12000}`]
       ]
 
       const totalDeductions = (detailData?.deductions?.healthInsurance || 12250) +
@@ -107,10 +169,10 @@ export default function SalaryPage() {
                              (detailData?.deductions?.incomeTax || 8500) +
                              (detailData?.deductions?.residentTax || 12000)
 
-      deductionData.push(['控除合計', `¥${totalDeductions.toLocaleString()}`])
+      deductionData.push([toRomaji('控除合計'), `¥${totalDeductions.toLocaleString()}`])
 
       autoTable(doc, {
-        head: [['控除項目', '金額']],
+        head: [[toRomaji('控除項目'), toRomaji('金額')]],
         body: deductionData,
         startY: 70,
         margin: { left: 140 },
@@ -122,41 +184,43 @@ export default function SalaryPage() {
       const finalY = Math.max((doc as any).lastAutoTable?.finalY || 150, 150)
 
       doc.setFontSize(14)
-      doc.text('差引支給額', 20, finalY + 20)
+      doc.text(toRomaji('差引支給額'), 20, finalY + 20)
       doc.setFontSize(18)
       doc.text(`¥${netSalary.toLocaleString()}`, 60, finalY + 20)
 
-      doc.save(`給与明細_${employee.employeeName}_${new Date().toISOString().split('T')[0]}.pdf`)
+      const filename = `SalaryStatement_${toRomaji(employee.employeeName)}_${new Date().toISOString().split('T')[0]}.pdf`
+      doc.save(filename)
     } else {
       // 給与一覧PDF
       doc.setFontSize(16)
-      doc.text('給与計算一覧表', 105, 20, { align: 'center' })
+      doc.text(toRomaji('給与計算一覧表'), 105, 20, { align: 'center' })
       
       doc.setFontSize(12)
-      doc.text('2024年9月分', 20, 35)
-      doc.text(`作成日：${new Date().toLocaleDateString('ja-JP')}`, 140, 35)
+      doc.text('2024/09 Salary List', 20, 35)
+      doc.text(`${toRomaji('作成日')}: ${new Date().toLocaleDateString('en-US')}`, 140, 35)
 
       const tableData = sampleSalaryData.map(emp => [
-        emp.employeeName,
-        emp.department,
-        `${emp.workDays}日`,
-        `${emp.totalHours}時間`,
-        `${emp.overtimeHours}時間`,
+        toRomaji(emp.employeeName),
+        toRomaji(emp.department),
+        `${emp.workDays} days`,
+        `${emp.totalHours} hrs`,
+        `${emp.overtimeHours} hrs`,
         `¥${emp.baseSalary.toLocaleString()}`,
         `¥${emp.overtimePay.toLocaleString()}`,
         `¥${emp.totalSalary.toLocaleString()}`,
-        emp.status
+        toRomaji(emp.status)
       ])
 
       autoTable(doc, {
-        head: [['従業員名', '部署', '出勤日数', '総労働時間', '残業時間', '基本給', '残業代', '総支給額', 'ステータス']],
+        head: [[toRomaji('従業員名'), toRomaji('部署'), 'Work Days', 'Total Hours', 'OT Hours', 'Base Salary', 'OT Pay', 'Total Salary', toRomaji('ステータス')]],
         body: tableData,
         startY: 50,
         styles: { fontSize: 9, cellPadding: 2 },
         headStyles: { fillColor: [200, 220, 255] }
       })
 
-      doc.save(`給与計算一覧_${new Date().toISOString().split('T')[0]}.pdf`)
+      const filename = `SalaryList_${new Date().toISOString().split('T')[0]}.pdf`
+      doc.save(filename)
     }
   }
 
